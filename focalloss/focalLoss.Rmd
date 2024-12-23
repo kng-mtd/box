@@ -1,0 +1,474 @@
+---
+title: "focal loss"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    code_folding: hide 
+#date: "`r Sys.Date()`"
+
+---
+
+```{r setup, include=F}
+knitr::opts_chunk$set(echo=T,warning=F,message=F)
+
+
+suppressWarnings(
+  suppressMessages(
+    suppressPackageStartupMessages({
+      library(stats)
+      library(MASS)
+      library(tidyverse)
+      library(magrittr)
+      
+      library(palmerpenguins)　#サンプルデータ用
+      library(corrplot)
+      library(DT)　#テーブル表示ライブラリ
+      library(plotly)　#グラフ表示ライブラリ
+    })
+  )
+)
+options(scipen=100,digits=3)
+```
+
+
+(https://chrome-extension://efaidnbmnnnibpcajpcglclefindmkaj/https://arxiv.org/pdf/1708.02002)
+(https://deepsquare.jp/2020/10/retinanet/)
+
+
+
+```{r}
+tb0=penguins
+tb=tb0 |> 
+  drop_na() |> 
+  mutate(species=as.numeric(species=='Chinstrap')) |> 
+  mutate(sex=as.numeric(sex=='male')) |>
+  select(is.numeric,-year) |>
+  scale() |> 
+  as_tibble() |> 
+  mutate(species=as.numeric(species>0),
+         sex=as.numeric(sex>0))
+
+tb0=tb |> filter(species==0)
+tb1=tb |> filter(species==1)
+
+a=1
+tb=bind_rows(tb0,sample_frac(tb1,a))
+
+summary(tb)
+corrplot(cor(tb))
+
+#学習データ、テストデータ
+train_id=sample(1:nrow(tb),0.5*nrow(tb))
+train_data=tb[train_id,]
+test_data=tb[-train_id,]
+
+#説明変数、目的変数
+x_train=as.matrix(select(train_data,-species))
+y_train=train_data$species
+x_test=as.matrix(select(test_data,-species))
+y_test=test_data$species
+```
+
+
+```{r}
+#ロジスティック回帰のモデル定義
+sigmoid=function(x) 1/(1+exp(-x))
+```
+
+
+```{r}
+cat('\n optimize on least squares \n')
+
+# ロジスティック回帰モデルのフィッティング
+mdl=glm(species~bill_length_mm+bill_depth_mm+flipper_length_mm+body_mass_g+sex,
+        data=train_data, family=binomial)
+
+#mdl=glm(species~sex,data=train_data, family=binomial)
+
+#mdl=glm(species~bill_length_mm,data=train_data, family=binomial)
+
+#summary(mdl)
+
+yprob_test=sigmoid(predict(mdl,newdata=test_data))
+#prd=predict(mdl,newdata=test_data,type = "response")
+prd=ifelse(yprob_test>0.5,1,0)
+
+# 正解率
+acc=sum(prd==y_test)/length(y_test)
+cat('accuracy:',acc,sum(y_test==1 & prd==1)/sum(y_test==1),'\n')
+
+#混同行列
+conf=table(prd,y_test)
+addmargins(conf)
+
+plot(yprob_test)
+```
+
+
+```{r}
+cat('\n optimize on cross entropy \n')
+
+#cross entropy
+ce_loss=function(yobs,yprd) {
+  eps=1e-15
+  yprd=pmax(pmin(yprd,1-eps),eps) # 予測値のクリッピング(0,1)
+  loss=-yobs*log(yprd)-(1-yobs)*log(1-yprd)
+  return(mean(loss))
+}
+
+#損失関数
+loss_function_ce=function(prs) {
+  intercept=prs[1]
+  coefs=prs[-1]
+  yprd=sigmoid(intercept + x_train %*% coefs)
+  return(ce_loss(y_train,yprd))
+}
+
+
+#最適化
+prs0=rep(0,ncol(x_train)+1)
+rst=optim(prs0,loss_function_ce,method='BFGS')
+
+intercept=rst$par[1]
+coefs=rst$par[-1]
+
+#テストデータに対する予測
+yprob_test=sigmoid(intercept + x_test %*% coefs)
+prd=ifelse(yprob_test>0.5,1,0)
+
+#正解率
+acc=sum(prd==y_test)/length(y_test)
+cat('accuracy:',acc,sum(y_test==1 & prd==1)/sum(y_test==1),'\n')
+
+#混同行列
+conf=table(prd,y_test)
+addmargins(conf)
+
+plot(yprob_test)
+```
+
+
+```{r}
+cat('\n optimize on focal loss \n')
+
+#focal loss
+focal_loss=function(yobs,yprd,gamma=2,alpha=0.25) {
+  eps=1e-15
+  yprd=pmax(pmin(yprd,1-eps),eps) # 予測値のクリッピング (0,1)
+  loss=-alpha*(1-yprd)**gamma*yobs*log(yprd)-(1-alpha)*yprd**gamma*(1-yobs)*log(1-yprd)
+  return(mean(loss))
+}
+
+
+#損失関数
+loss_function_focal=function(prs) {
+  intercept=prs[1]
+  coefs=prs[-1]
+  yprd=sigmoid(intercept + x_train %*% coefs)
+  return(focal_loss(y_train,yprd))
+}
+
+
+
+#最適化
+prs0=rep(0,ncol(x_train)+1)
+rst=optim(prs0,loss_function_focal,method='BFGS')
+
+intercept=rst$par[1]
+coefs=rst$par[-1]
+
+#テストデータに対する予測
+yprob_test=sigmoid(intercept + x_test %*% coefs)
+prd=ifelse(yprob_test>0.5,1,0)
+
+#正解率
+acc=sum(prd==y_test)/length(y_test)
+cat('accuracy:',acc,sum(y_test==1 & prd==1)/sum(y_test==1),'\n')
+
+#混同行列
+conf=table(prd,y_test)
+addmargins(conf)
+
+plot(yprob_test)
+```
+
+
+
+
+```{r}
+ls=function(train_data,test_data,y_test,b){
+
+# ロジスティック回帰モデルのフィッティング
+mdl=glm(species~bill_length_mm+bill_depth_mm+flipper_length_mm+body_mass_g+sex,
+        data=train_data, family=binomial)
+
+#mdl=glm(species~sex,data=train_data, family=binomial)
+
+#mdl=glm(species~bill_length_mm,data=train_data, family=binomial)
+
+#summary(mdl)
+
+yprob_test=sigmoid(predict(mdl,newdata=test_data))
+#prd=predict(mdl,newdata=test_data,type = "response")
+prd=ifelse(yprob_test>0.5,1,0)
+
+# 正解率
+acc=sum(prd==y_test)/length(y_test)
+cat('accuracy:',acc,sum(y_test==1 & prd==1)/sum(y_test==1),'\n')
+
+#混同行列
+conf=table(prd,y_test)
+addmargins(conf)
+print(conf)
+
+
+if(b) plot(yprob_test)
+if(b) boxplot(yprob_test~y_test==1)
+}
+```
+
+
+```{r}
+ce=function(train_data,test_data,y_test,c=0.5,b){
+  
+#cross entropy
+ce_loss <- function(yobs,yprd) {
+  eps=1e-15
+  yprd=pmax(pmin(yprd,1-eps),eps) # 予測値のクリッピング(0,1)
+  loss=-yobs*log(yprd)-(1-yobs)*log(1-yprd)
+  return(mean(loss))
+}
+
+#損失関数
+loss_function_ce=function(prs) {
+  intercept=prs[1]
+  coefs=prs[-1]
+  yprd=sigmoid(intercept + x_train %*% coefs)
+  return(ce_loss(y_train,yprd))
+}
+
+#最適化
+prs0=rep(0,ncol(x_train)+1)
+rst=optim(prs0,loss_function_ce,method='BFGS')
+
+intercept=rst$par[1]
+coefs=rst$par[-1]
+
+#テストデータに対する予測
+yprob_test=sigmoid(intercept + x_test %*% coefs)
+prd=ifelse(yprob_test>c,1,0)
+
+#正解率
+acc=sum(prd==y_test)/length(y_test)
+cat('accuracy:',acc,sum(y_test==1 & prd==1)/sum(y_test==1),'\n')
+
+#混同行列
+conf=table(prd,y_test)
+addmargins(conf)
+print(conf)
+
+if(b) plot(yprob_test)
+if(b) boxplot(yprob_test~y_test==1)
+}
+```
+
+
+```{r}
+fl=function(train_data,test_data,y_test,c=0.5,b){
+
+#focal loss
+focal_loss=function(yobs,yprd,gamma=2,alpha=0.5) {
+  eps=1e-15
+  yprd=pmax(pmin(yprd,1-eps),eps) # 予測値のクリッピング (0,1)
+  loss=-alpha*(1-yprd)**gamma*yobs*log(yprd)-(1-alpha)*yprd**gamma*(1-yobs)*log(1-yprd)
+  return(mean(loss))
+}
+
+#損失関数
+loss_function_focal=function(prs) {
+  intercept=prs[1]
+  coefs=prs[-1]
+  yprd=sigmoid(intercept + x_train %*% coefs)
+  return(focal_loss(y_train,yprd))
+}
+
+#最適化
+prs0=rep(0,ncol(x_train)+1)
+rst=optim(prs0,loss_function_focal,method='BFGS')
+
+intercept=rst$par[1]
+coefs=rst$par[-1]
+
+#テストデータに対する予測
+yprob_test=sigmoid(intercept + x_test %*% coefs)
+prd=ifelse(yprob_test>c,1,0)
+
+#正解率
+acc=sum(prd==y_test)/length(y_test)
+cat('accuracy:',acc,sum(y_test==1 & prd==1)/sum(y_test==1),'\n')
+
+#混同行列
+conf=table(prd,y_test)
+addmargins(conf)
+print(conf)
+
+if(b) plot(yprob_test)
+if(b) boxplot(yprob_test~y_test==1)
+}
+```
+
+
+
+
+
+```{r}
+tb0=read_csv('penguins_expand.csv')
+
+tb=tb0 |> 
+  drop_na() |> 
+  mutate(species=`species:Chinstrap`) |> 
+  mutate(sex=as.numeric(`sex:male`==1)) |>
+  select(species,bill_length_mm,bill_depth_mm,flipper_length_mm,body_mass_g,sex) |>
+  scale() |> 
+  as_tibble() |> 
+  mutate(species=as.numeric(species>0),
+         sex=as.numeric(sex>0))
+
+tb0=tb |> filter(species==0)
+tb1=tb |> filter(species==1)
+
+```
+
+
+```{r}
+a=0.1
+for(i in 1:1){
+
+tb=bind_rows(tb0,sample_frac(tb1,a))
+
+#学習データ、テストデータ
+train_id=sample(1:nrow(tb),0.5*nrow(tb))
+train_data=tb[train_id,]
+test_data=tb[-train_id,]
+
+#説明変数、目的変数
+x_train=as.matrix(select(train_data,-species))
+y_train=train_data$species
+x_test=as.matrix(select(test_data,-species))
+y_test=test_data$species
+
+cat('\n')
+
+cat('least squares: ')
+ls(train_data,test_data,y_test,TRUE)
+
+cat('cross entropy: ')
+ce(train_data,test_data,y_test,0.5,TRUE)
+
+cat('focal loss: ')
+fl(train_data,test_data,y_test,0.5,TRUE)
+}
+```
+
+
+
+
+
+https://www.kaggle.com/datasets/shashwatwork/cerebral-stroke-predictionimbalaced-dataset
+
+```{r}
+tb0=read.csv('dataset.csv',na.strings=c('')) |> 
+  as_tibble()
+glimpse(tb0)
+
+tb0 |>  
+  select(-id) |> 
+  drop_na() ->tb0
+summary(tb0)
+```
+
+standardization [0,1] for numeric variables
+
+```{r}
+tbn=tb0 %>%
+  select(is.numeric) # just numeric variable
+
+nn=names(tbn)
+l=c()
+u=c()
+
+for(i in nn){
+  l[i]=min(tbn[i])
+  u[i]=max(tbn[i])
+  tbn[i]=scale(tbn[i],center=l[i],scale=u[i]-l[i])
+}
+```
+
+make binary variable 0/1 from each categorical variable's level
+
+```{r}
+tbc0=tb0 %>%
+  select(!is.numeric) # just categorical variable
+
+nc=names(tbc0)
+
+tbc=tibble(rep(NA,nrow(tbc0)))
+for(i in nc){
+  btb=as_tibble(factor2ind(tbc0[[i]]))
+  names(btb)=names(btb) %>%
+    str_replace('tbc0\\[\\[i\\]\\]',i)
+  tbc=tbc %>%
+    bind_cols(btb)
+}
+tbc=tbc[,-1]
+```
+
+
+```{r}
+tb=bind_cols(tbn,tbc)
+summary(tb)
+
+par(mfrow=c(1,1))
+corrplot(cor(tb))
+```
+
+
+```{r}
+#学習データ、テストデータ
+train_id=sample(1:nrow(tb),0.5*nrow(tb))
+train_data=tb[train_id,]
+test_data=tb[-train_id,]
+
+#説明変数、目的変数
+x_train=as.matrix(select(train_data,-stroke))
+y_train=train_data$stroke
+x_test=as.matrix(select(test_data,-stroke))
+y_test=test_data$stroke
+```
+
+
+
+```{r}
+cat('\n','cross entropy c=0.5: ')
+ce(train_data,test_data,y_test,0.5,TRUE)
+
+cat('\n','cross entropy c=0.05: ')
+ce(train_data,test_data,y_test,0.05,FALSE)
+
+cat('\n','cross entropy c=0.02: ')
+ce(train_data,test_data,y_test,0.02,FALSE)
+
+
+cat('\n','focal loss c=0.5: ')
+fl(train_data,test_data,y_test,0.5,TRUE)
+
+cat('\n','focal loss c=0.25: ')
+fl(train_data,test_data,y_test,0.2,FALSE)
+
+cat('\n','focal loss c=0.15: ')
+fl(train_data,test_data,y_test,0.15,FALSE)
+
+```
+
