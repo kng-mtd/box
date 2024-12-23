@@ -1,0 +1,74 @@
+---
+title: "title"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    code_folding: hide 
+#date: "`r Sys.Date()`"
+
+---
+
+<style type="text/css">
+  body{
+  font-size: 12pt;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=T,warning=F,message=F,comment='')
+
+suppressWarnings(
+  suppressMessages(
+    suppressPackageStartupMessages({
+      library(stats)
+      library(MASS)
+      library(tidyverse)
+      library(magrittr)
+      
+      library(palmerpenguins)　#サンプルデータ用
+      
+      library(DT)　#テーブル表示ライブラリ
+      library(htmlTable) #テーブル表示ライブラリ
+      library(plotly)　#グラフ表示ライブラリ
+      library(DiagrammeR) #ダイアグラム表示ライブラリ
+    })
+  )
+)
+options(scipen=100,digits=3)
+```
+
+
+
+```{r}
+grViz("digraph {
+  graph [label='観測値と因子', labelloc=t,
+    layout = dot, rankdir = TB,
+    nodesep=0.5,ranksep=1]
+
+  
+  node [shape=rectangle]
+  f1 [label = '体力',shape=ellipse]
+  f2 [label = '知力',shape=ellipse]
+  f3 [label = '運',shape=ellipse]
+  v1 [label = 'マージャン']
+  v2 [label = '年俸']  
+  v3 [label = '100m走']
+  v4 [label = '野球']
+
+  f1->v1
+  f1->v2
+  f1->v3
+  f1->v4
+  f2->v1
+  f2->v2
+  f2->v3
+  f2->v4
+  f3->v1
+  f3->v2
+  f3->v3
+  f3->v4
+}")
+```
+

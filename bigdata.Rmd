@@ -1,0 +1,168 @@
+---
+title: "bigdata"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=F}
+knitr::opts_chunk$set(echo=T,warning=F,message=F)
+options(digits=2)
+library(data.table)
+library(arrow)
+library(duckdb)
+```
+
+```{r}
+rm(list=ls())
+
+system.time({
+  x=rnorm(1e8,0,1) #make random number vector
+},T)
+
+system.time({
+  c=sample(c('a','b','c','d','e'),1e8,replace=T) #make random factor vector
+},T)
+
+
+s0=read_lines('./prophetFACEBOOK.txt',skip_empty_rows=T)
+s=s0 %>% str_split(' ') %>% unlist() %>% str_remove_all("'")
+
+system.time({
+  str=sample(s,1e8,replace=T) #make random string vector
+},T)
+
+system.time({
+  tb0=tibble(x1=rnorm(1e8,0,1),
+             x2=rnorm(1e8,0,1),
+             x3=rnorm(1e8,0,1),
+             c1=sample(c('a','b','c','d','e'),1e8,replace=T),
+             c2=sample(c('a','b','c','d','e'),1e8,replace=T),
+             c3=sample(c('a','b','c','d','e'),1e8,replace=T),
+             str=sample(s,1e8,replace=T))
+},T)
+
+
+write_csv(tb0,'big.csv') # 6.6GB
+system.time({
+  tb=read_csv('./big.csv')
+},T)
+
+system.time({
+  tb=fread('./big.csv') |> as_tibble()
+},T)
+
+write_rds(tb0,'big.rds') # 6.0GB
+system.time({
+  tb=read_rds('./big.rds')
+},T)
+
+write_parquet(tb0,'big.parquet') # 2.5GB
+system.time({
+  tb=read_parquet('./big.parquet',as_data_frame=T)
+},T)
+
+#1st
+system.time({
+  head(tb) %>% print()
+},T)
+
+#2nd
+system.time({
+  head(tb) %>% print()
+},T)
+
+system.time({
+  tb %>% group_by(c1) %>%
+    summarise(n(),mean(x1),sd(x1)) %>%
+    print()
+},T)
+
+system.time({
+  tb %>% mutate(xx=x1*x2*x3) %>% 
+    group_by(c1,c2,c3) %>%
+    summarise(n(),
+              mean(x1),sd(x1),
+              mean(x2),sd(x2),
+              mean(x3),sd(x3),
+              mean(xx),sd(xx)) %>% 
+    print()
+},T)
+
+system.time({
+  atb=read_parquet('./big.parquet',as_data_frame=F)
+},T)
+
+#1st
+system.time({
+  head(atb) %>% collect() %>% print()
+},T)
+
+#2nd
+system.time({
+  head(atb) %>% collect() %>% print()
+},T)
+
+system.time({
+  atb %>% group_by(c1) %>%
+    summarise(n(),mean(x1),sd(x1)) %>%
+    collect() %>%
+    print()
+},T)
+
+system.time({
+  atb %>% mutate(xx=x1*x2*x3) %>% 
+    group_by(c1,c2,c3) %>%
+    summarise(n(),
+              mean(x1),sd(x1),
+              mean(x2),sd(x2),
+              mean(x3),sd(x3),
+              mean(xx),sd(xx)) %>% 
+    collect() %>%
+    print()
+},T)
+
+
+system.time({
+  tb=read_parquet('./big.parquet',c(c1,x1),as_data_frame=T)
+},T)
+
+#1st
+system.time({
+  head(tb) %>% print()
+},T)
+
+#2nd
+system.time({
+  head(tb) %>% print()
+},T)
+
+system.time({
+  tb %>% group_by(c1) %>%
+    summarise(n(),mean(x1),sd(x1)) %>%
+    print()
+},T)
+
+
+system.time({
+  atb=read_parquet('./big.parquet',c(c1,x1),as_data_frame=F)
+},T)
+
+#1st
+system.time({
+  head(atb) %>% collect() %>% print()
+},T)
+
+#2nd
+system.time({
+  head(atb) %>% collect() %>% print()
+},T)
+
+system.time({
+  atb %>% group_by(c1) %>%
+    summarise(n(),mean(x1),sd(x1)) %>%
+    collect() %>%
+    print()
+},T)
+
+```
+

@@ -1,0 +1,208 @@
+---
+title: "Rでブラウザで見るデータ分析レポートをつくる"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=T,message=F,warning=F,comment='')
+library(stats)
+library(MASS)
+library(tidyverse)
+library(magrittr)
+
+library(palmerpenguins)　#サンプルデータ用
+
+library(DT)　#テーブル表示ライブラリ
+library(htmlTable) #テーブル表示ライブラリ
+library(plotly)　#グラフ表示ライブラリ
+
+library(gapminder)　#時系列サンプルデータ用
+```
+
+
+## 数式の表示
+
+円　$x^2+y^2=1$    
+標本分散　$\sum_i^n\left(x_i-\overline{x}\right)^2/n$  
+ガウス積分　$\int_{-\infty}^{\infty}e^{-x^{2}}\,dx=\sqrt{\pi}$  
+
+正規分布　$$ y_i\sim\text{Normal}(\mathbf{X}\boldsymbol{\beta},\sigma) $$　
+
+
+ロジスティクス回帰
+$$
+\begin{align}
+  Y_i      & \sim \text{Bernoulli}(\theta_i),\tag{1.1} \\
+  \theta_i & = \text{logit}^{-1}(y_i^*),\tag{1.2} \\
+  y_i^*    & = \beta_0 + \beta_1 x_1 + \beta_2 z_1.\tag{1.3}
+\end{align}
+$$
+
+行列
+$$
+X = \begin{bmatrix}
+  x_{11} & x_{12} \\
+  x_{21} & x_{22} \\
+  x_{31} & x_{32}
+\end{bmatrix}
+$$
+
+
+オイラーの等式
+$$
+\begin{aligned}
+e^{i\theta }=\cos \theta +i\sin \theta\\
+e^{i\pi }=-1
+\end{aligned}
+$$
+
+
+$$
+\begin{aligned}
+e^{i\theta }= & \cos \theta +i\sin \theta\\
+e^{i\pi }=& -1
+\end{aligned}
+$$
+
+## 画像の表示
+
+![Bring it on...](./cat.jpg){width=50%}
+
+
+
+## テーブルの表示
+
+サンプルデータ
+```{r}
+tb=sample_n(penguins,10)
+```
+kable関数で表示
+```{r}
+kable(tb)
+```
+htmlTable関数で品よく表示
+```{r}
+htmlTable(tb)
+```
+DataTablesを使ってインタラクティブな表示
+```{r}
+datatable(tb,filter='top')
+```
+
+
+
+
+## グラフの表示
+
+サンプルデータ
+```{r}
+tb=penguins
+```
+
+
+### １量的変数　ヒストグラム
+```{r}
+qplot(data=tb,body_mass_g,bins=10,main='histogram')
+plot_ly(tb,x=~body_mass_g,xbins=list(size=500)) %>%
+  layout(title='histogram') # option: orientation='h'
+```
+
+
+### １質的変数　棒グラフ、円グラフ
+```{r}
+qplot(data=tb,island,main='bar chart')
+plot_ly(tb,x=~island) %>%
+  layout(title='bar chart')
+
+tbl=table(tb$island)
+plot_ly(values=tbl,labels=names(tbl),type='pie') %>%
+  layout(title='pie chart')
+```
+
+
+### ２量的変数　散布図
+```{r}
+qplot(data=tb,bill_length_mm,flipper_length_mm,main='scatter plot')
+plot_ly(tb,x=~bill_length_mm,y=~flipper_length_mm) %>%
+  layout(title='scatter plot')
+```
+
+
+### ２質的変数　ヒートマップ
+```{r}
+plot_ly(tb,x=~species,y=~island,colors=gray.colors(2)) %>% 
+  layout(title='heatmap')
+```
+
+
+### １質的変数ｘ１量的変数　ボックスプロット
+```{r}
+qplot(data=tb,species,bill_depth_mm,geom='boxplot',main='boxplot')
+plot_ly(tb,x=~species,y=~bill_depth_mm,type='box') %>% 
+  layout(title='boxplot')
+```
+
+
+### 時間ｘ１量的変数　折れ線グラフ
+```{r}
+air=airquality
+qplot(data=air,1:nrow(air),Ozone,geom='line',main='line chart')
+plot_ly(air,x=~1:nrow(air),y=~Ozone,mode='lines') %>% 
+  layout(title='line chart')
+```
+
+
+### ３量的変数　散布図
+```{r}
+qplot(data=tb,bill_length_mm,bill_depth_mm,
+      col=body_mass_g,main='scatter plot')
+plot_ly(tb,x=~bill_length_mm,y=~bill_depth_mm,size=~body_mass_g) %>% 
+  layout(title='scatter plot of body mass')
+```
+
+
+### ２量的変数ｘ１質的変数　散布図
+```{r}
+qplot(data=tb,bill_length_mm,bill_depth_mm,
+      col=species,main='scatter plot')
+plot_ly(tb,x=~bill_length_mm,y=~bill_depth_mm,color=~species) %>% 
+  layout(title='scatter plot of species')
+```
+
+
+### ３量的変数ｘ１質的変数　散布図
+```{r}
+plot_ly(tb,x=~bill_length_mm,y=~bill_depth_mm,
+        size=~body_mass_g,color=~sex) %>% 
+  layout(title='scatter plot of body mass')
+```
+
+
+### 行列　ヒートマップ、等高線プロット
+```{r}
+mx=matrix(rnorm(400,0,1),20)
+
+plot_ly(z=~mx,colors=gray.colors(2)) %>%
+  layout(title='heatmap')
+plot_ly(z=~mx,colors=gray.colors(2)) %>%
+  add_surface() %>% 
+  layout(title='contour plot')
+```
+
+
+### 時間ｘ３量的変数ｘ１質的変数　時系列散布図アニメーション
+```{r}
+gapminder %>%
+  plot_ly(x=~log(gdpPercap),
+          y=~lifeExp,
+          frame=~year,
+          color=~continent,
+          size=~pop,marker=list(sizemode='diameter'),
+          text=~paste('country:',country,'<br>population:',pop),
+          hoverinfo='text') %>%
+  layout(title='Animated scatter plot of poplation',
+    xaxis=list(title='log GDP/Cap'),yaxis=list(title='Life Expectation'))
+
+```
+
