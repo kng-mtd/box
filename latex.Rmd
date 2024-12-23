@@ -1,0 +1,62 @@
+---
+#title: "MathJax Example"
+output:
+  html_document:
+  mathjax: "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+
+
+\[
+a + b = c + d \tag{1,1}
+\]
+\[
+a + b = c + d \tag{1,2}
+\]
+\[
+a + b = c + d \tag{1,3}
+\]
+
+
+
+\begin{equation}
+\sum_{k=1}^nk=\frac{1}{2}n(n+1)
+\end{equation}
+\begin{equation}
+\int_0^\infty e^{-ax^2}dx=\frac{1}{2}\sqrt{\frac{\pi}{a}}
+\end{equation}
+
+
+\begin{eqnarray}E & = & mc^2 \tag{a}\label{eq1}\end{eqnarray}
+
+\eqref{eq1}
+
+
+inline \( --- \)
+\(E=mc^2\)
+\(f(x) = \int_{-\infty}^{\infty} e^{-x^2} \,dx\)
+
+$f(x)= a x + b$
+
+block
+\[ --- \]
+
+\[x^{2}+y^{2}=1\]
+\[\sum_{i}^{n} \left( x_{i}-\overline{x}\right) ^{2}\]
+\[  i\hbar\frac{\partial}{\partial t}\psi(x,t)=
+  \left(-\frac{\hbar^2}{2m}+V(x)\right)\psi(x,t)\]
+  
+
+$$
+\mathop{\rm argmax}\limits_{\boldsymbol{\phi}}
+$$
+
+
+
+

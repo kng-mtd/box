@@ -1,0 +1,147 @@
+---
+title: "draw map"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T,warning = F,message = F)
+```
+
+ライブラリNipponMapより
+
+JapanPrefMap()
+　オプション
+　　県の配色　col=vector[1:47]
+　　境界線の色　border=rgb(r,g,b,a)/ '#RRGGBB'/ gray(x,a) x:[0,1],a:[0,1]
+　　沖縄の位置　inset=T/F　右上／原位置
+
+県の中心(lng,lat)　xy=JapanPreMap()
+
+```{r}
+#県JISコード、県名、人口(2015)、地方名
+prf=foreign::read.dbf(system.file("shapes/jpn.dbf", package="NipponMap"))
+
+library(NipponMap)
+par(mar=c(0,0,0,0))
+cols=rep('gray',47) %+% (100-ceiling(prf$population/140000))
+#cols=sample(colors(),47)
+JapanPrefMap(col=cols,border=gray(.5))
+box()
+```
+
+
+座標（緯度、経度）への図形描画
+symbols(x,y,
+ circles=r/ squares=l/ rectangles=c(w,h)/ stars=c(a0,a1,a2,...)/
+ thermometers=c(w,h,p)/ boxplots=c(w,h,lw_l,uw_l,p)/
+
+ add=T/F,　直前プロットへ追加／新規
+ inches=F/T,　座標上の大きさ／画面上の大きさ
+ fg=x,　線の色
+ bg=x,　面の色
+
+ xlim=c(min lng, max lng), ylim=c(min lat, max lat)
+ main='---', xlab='---', ylab='---'
+)
+
+凡例
+legend(
+ "bottomright"/ "bottom"/ "bottomleft"/ "left"/ "topleft"/
+ "top"/ "topright"/ "right"/ "center"
+
+ c('name1','name2',...),
+ pch=c(chr1,chr2,...),
+ fill=c(col1,col2,...)
+ bty='o' or 'n' 凡例の枠線の有無 
+ ...
+)
+
+```{r}
+par(mar=c(0,0,0,0))
+xy=JapanPrefMap(border=gray(.5)) # xy:prefecture (lng,lat)
+symbols(xy,circles=prf$population*5e-8,inches=F,add=T,
+        fg='red',bg=rgb(1,0,0,0.3))
+legend('bottom','population',fill='red',bty='o')
+```
+
+
+
+ライブラリmaps、mapdataより
+
+世界地図
+map( 
+  wrap=c(0,360)/ c(-180,180),　太平洋中心／大西洋中心
+  xlim=c(min lng,max lng), ylim=c(min lat, max lat),
+  interior=F/T,　国境
+  fill=T,col=c()　国境で塗分け
+)
+
+緯度経度追加
+map.axes()
+
+国指定
+map(regions=c('japan','south korea','north korea'))
+
+指定国ポリゴン名リスト
+map(regions=c('japan','south korea','north korea'),plot=F)$names
+
+ISO3166-1リスト
+data(iso3166)
+
+ISOコード（２文字／３文字）を国名に変換
+iso.expand('JP'/'JPN')
+
+国名をISOコード（２文字／３文字）に変換
+iso.alpha('japan', n=2/3)
+
+日本地図
+map('japan')
+
+```{r}
+library(maps)
+library(mapdata)
+
+par(mar=c(0,0,0,0))
+map()
+```
+
+```{r}
+#指定経緯へプロット、テキスト記入
+par(mar=c(0,0,0,0))
+map(wrap=c(0,360))
+lng=140
+lat=35.5
+points(lng,lat,col="red",pch=1)
+text(lng+5,lat-5,"Japan!",col="red")
+
+
+#マップ全体のポリゴン名リスト
+name=map(regions=c('japan','south korea','north korea'),plot=F)$names
+#マップ内指定国のポリゴン名リスト
+str_subset(name,regex('korea',ignore_case = T))
+
+#指定国塗分け
+par(mar=c(0,0,0,0))
+map(regions=c('japan','south korea','north korea'),
+    fill=T,
+    col=name %>%
+      str_detect(regex('japan|north korea',ignore_case=T)) %>%
+      if_else(2,0))
+
+#失敗　ポリゴン塗分け
+par(mar=c(0,0,0,0))
+map(regions=c('japan','south korea','north korea'),fill=T,col=1:3)
+```
+
+```{r}
+#日本県境
+par(mar=c(0,0,0,0))
+map("japan", interior=F,xlim=c(134,137),ylim=c(33,36))
+map('japan',lty=2,add=T)
+lng=135.50
+lat=34.69
+points(lng,lat,col="red",pch=1)
+text(lng+0.2,lat-0.2,"Here!",col="red")
+```
+

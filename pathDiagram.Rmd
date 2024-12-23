@@ -1,0 +1,261 @@
+---
+title: "path diagram"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=T,warning=F,message=F)
+
+
+suppressWarnings(
+  suppressMessages(
+    suppressPackageStartupMessages({
+      library(stats)
+      library(MASS)
+      library(tidyverse)
+      library(magrittr)
+      library(DiagrammeR) #ダイアグラム表示ライブラリ
+    })
+  )
+)
+```
+
+Path diagram describe variables relation, linear and normal stochastic model
+
+normal random has mean x0
+```{r}
+grViz("digraph{
+  graph[label='x=x0+e, e~N(0,s)',labelloc=t,
+  layout=dot,rankdir=LR,nodesep=0.5,ranksep=1]
+
+  node [shape=rectangle]
+  x [label='x']
+  e [label='e',shape=circle]
+  
+  edge[]
+  e->x
+}")
+```
+
+
+confounding
+```{r}
+grViz("digraph{
+  graph[label='confounding\n\n  ',labelloc=t,
+  layout=dot,rankdir=TB,nodesep=0.5,ranksep=1]
+
+  node [shape=rectangle]
+  edge[len=2]
+  
+  x1 [label='x']
+  y1 [label='y']
+  z1 [label='z',shape=ellipse]
+  e11 [label='e',shape=circle]
+  x1->y1
+  z1->y1
+  e11->y1 [len=1]
+
+  x2 [label='x']
+  y2 [label='y']
+  z2 [label='z',shape=ellipse]
+  e21 [label='e']
+  e22 [label='e']
+  z2->x2
+  z2->y2
+  e21->x2 [len=1]
+  e22->y2 [len=1]
+
+  x3 [label='x']
+  y3 [label='y']
+  z3 [label='z',shape=ellipse]
+  e31 [label='e']
+  e32 [label='e']
+  x3->y3
+  z3->x3
+  z3->y3
+  e31->x3 [len=1]
+  e32->y3 [len=1]
+}")
+```
+
+
+serial contribution
+```{r}
+grViz("digraph{
+  graph[label='serial\n x2=x1+e1, y=x2+e2, e~N(0,s)\n b=b1*b2',labelloc=t,
+  layout=dot,rankdir=LR,nodesep=0.5,ranksep=1]
+
+  node [shape=rectangle]
+  x1 [label='x1']
+  e1 [label='e1',shape=circle]
+  x2 [lebel='x2']
+  e2 [label='e2',shape=circle]
+  y [label='y']
+
+  edge [len=2]
+  x1->x2 [label='b1']
+  e1->x2 [len=1]
+  x2->y [label='b2']
+  e2->y [len=1]
+}")
+```
+
+
+parallel contribution
+```{r}
+grViz("digraph{
+  graph[label='parallel\n y=x1+x2+e2, e~N(0,s)\n b=b1+b2',labelloc=t,
+  layout=dot,rankdir=LR,nodesep=0.5,ranksep=1]
+
+  node [shape=rectangle]
+  x1 [label='x1']
+  x2 [lebel='x2']
+  e1 [label='e',shape=circle]
+  y [label='y']
+
+  edge [len=2]
+  x1->y [label='b1']
+  x2->y [label='b2']
+  e1->y [len=1]
+}")
+```
+
+
+single regression
+```{r}
+grViz("digraph{
+  graph[label='single regression\n y=b0+b1*x+e, e~N(0,s)',labelloc=t,
+  layout=dot,rankdir=LR,nodesep=0.5,ranksep=1]
+
+  node [shape=rectangle]
+  b0 [label='1',shape=circle]
+  x1 [label='x']
+  e1 [label='e',shape=circle]
+  y [label='y']
+
+  edge [len=2]
+  b0->y [label='b0']
+  x1->y [label='b1']
+  e1->y [len=1]
+}")
+```
+
+
+multi regression
+```{r}
+grViz("digraph{
+  graph[label='multi regression\n y=b0+b1*x1+b1*x2+e, e~N(0,s)',labelloc=t,
+  layout=dot,rankdir=LR,nodesep=0.5,ranksep=1]
+
+  node [shape=rectangle]
+  b0 [label='1',shape=circle]
+  x1 [label='x1']
+  x2 [label='x2']
+  e1 [label='e',shape=circle]
+  y [label='y']
+
+  edge [len=2]
+  b0->y [label='b0']
+  x1->y [label='b1']
+  x2->y [label='b2']
+  e1->y [len=1]
+}")
+```
+
+
+oneway ANOVA
+```{r}
+grViz("digraph{
+  graph[label='one way ANOVA\n x=x0+(r01...r0K)+e, e~N(0,s)',labelloc=t,
+  layout=dot,rankdir=LR,nodesep=0.5,ranksep=1]
+
+  node [shape=rectangle]
+  x [label='x']
+  r0 [label='1',shape=circle]
+  e [label='e',shape=circle]
+  
+  edge[]
+  r0->x [label='r01...r0K']
+  e->x
+}")
+```
+
+
+mixed effect model
+```{r}
+grViz("digraph{
+  graph[label=' K class mixed effect model\n y=b0+(r01...r0K)+(b1+(r11...r1K))*x+e, e~N(0,s)',labelloc=t,
+  layout=dot,rankdir=LR,nodesep=0.5,ranksep=1]
+
+  node [shape=rectangle]
+  r0 [label='1',shape=circle]
+  x [label='x']
+  y [label='y']
+  e [label='e',shape=circle]
+  
+  edge[len=2]
+  x->y [label='b1\n r11...r1K~N(0,sr1)']
+  r0->y [label='b0\n r01...r0K~N(0,sr0)']
+  e->y [len=1]
+}")
+```
+
+
+PCA
+```{r}
+grViz("digraph{
+  graph[label='prncipal component analysis\n x~pc1+pc2+...+e, e~N(0,s)',labelloc=t,
+  layout=dot,rankdir=LR,nodesep=0.5,ranksep=1]
+
+  node [shape=rectangle]
+  x1 [label='x1']
+  x2 [label='x2']
+  x3 [label='x3']
+  p1 [label='pc1',shape=ellipse]
+  p2 [label='pc2',shape=ellipse]
+  e1 [label='e',shape=circle]
+  e2 [label='e',shape=circle]
+  e3 [label='e',shape=circle]
+
+  edge [len=2]
+  p1->x1
+  p2->x1
+  e1->x1 [len=1]
+  p1->x2
+  p2->x2
+  e2->x2 [len=1]
+  p1->x3
+  p2->x3
+  e3->x3 [len=1]
+}")
+```
+
+
+factor analysis
+```{r}
+grViz("digraph{
+  graph[label='factor analysis\n x~f1+f2+...+d',labelloc=t,
+  layout=dot,rankdir=LR,nodesep=0.5,ranksep=1]
+
+  node [shape=rectangle]
+  x1 [label='x1']
+  x2 [label='x2']
+  x3 [label='x3']
+  f1 [label='f1',shape=ellipse]
+  f2 [label='f2',shape=ellipse]
+  d1 [label='d1',shape=ellipse]
+  d2 [label='d2',shape=ellipse]
+  d3 [label='d3',shape=ellipse]
+
+  edge [len=2]
+  f1->x1
+  f2->x1
+  d1->x1
+  f1->x2
+  f2->x2
+  d2->x2
+  f1->x3
+  f2->x3
+  d3->x3
+}")
+```

@@ -1,0 +1,84 @@
+---
+title: "parquet"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# make parquet from csv by arrow package
+
+csv0=read_csv('midas0.csv')
+
+# pre process for midas data
+for(j in 13:ncol(csv0)){
+  csv0[[j]] %<>%
+    str_remove('\\$') %>%
+    str_remove_all(',') %>% 
+    as.numeric()
+}
+
+library(arrow)
+
+write_parquet(csv0,'midas0.parquet')
+rm(csv0)
+gc()
+```
+
+```{r}
+# make tibble from parquet file by arrow package
+
+tb0=read_parquet('midas0.parquet',as_data_frame = T)
+
+class(tb0)
+head(tb0)
+
+tb0 %>% group_by(Country) %>% count()
+```
+
+```{r}
+# make tibble of just selected column from parquet file
+
+tb=read_parquet('midas0.parquet',c(Country,Corporation,Product),as_data_frame = T)
+
+head(tb)
+```
+
+
+```{r}
+# make arrow table from Robj
+
+atb=arrow_table(tb)
+collect(atb)
+```
+
+```{r}
+# make allow table from parquet file
+
+atb=read_parquet('midas0.parquet',as_data_frame = F)
+
+class(atb)
+head(atb) %>% collect()
+
+atb %>% group_by(Country) %>% count() %>% collect()
+```
+
+```{r}
+# use duckdb
+
+library(duckdb)
+
+# connect or make duck_db
+db=dbConnect(duckdb(),'midas.db') 
+
+# make table from arrow table, some process to the table in duck_db
+atb %>%
+  to_duckdb('tbl0',con=db) %>%
+  group_by(Country) %>% count() %>% collect()
+
+dbDisconnect(db,shutdown=T)  
+gc()
+```
