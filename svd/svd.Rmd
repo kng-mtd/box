@@ -1,0 +1,512 @@
+---
+title: "テーブルデータの特異値分解"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    code_folding: hide 
+#date: "`r Sys.Date()`"
+---
+
+<style type="text/css">
+  body{
+  font-size: 12pt;
+}
+</style>
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=T,warning=F,message=F)
+
+suppressWarnings(
+  suppressMessages(
+    suppressPackageStartupMessages({
+      library(stats)
+      library(MASS)
+      library(tidyverse)
+      library(magrittr)
+      library(palmerpenguins)　#サンプルデータ用
+      library(DT)
+      library(corrplot)
+      library(DiagrammeR)
+      library(psych)
+      library(rsvd)
+    })
+  )
+)
+options(scipen=100,digits=3)
+```
+
+## はじめに
+
+　テーブルデータを行列とみなし、各種の線形代数手法を適用することで、データの特徴の可視化、潜在因子の抽出、容量圧縮などができる。その結果は分析者個人に依らない。ならば1変数、2変数のデータから基本的な統計量、分布、散布図を示すことがマナーであるように、多変数のテーブルデータから、その相関行列、主成分分析または特異値分解を示すことも基本的な記述統計ではないかと考える。データ分析の前段階としてそれらの十分な記述統計を準備することで、データから仮説検証するときも、予測モデルをつくるときも、（経験、勘でなく）その分析方法をより科学的な根拠から説明することができるだろう。
+<br>
+
+
+　ここではテーブルデータの特異値分解の基本についてまとめる。特異値分解は画像分析、音声分析、リコメンデーションなど実社会のビッグデータに対して最も適用されている分析手法である。今回は小さなデータを用いた説明になるが、小さな行列で成立する方法をそのまま何万次元のデータにも適用できることが線形代数手法の長所でもある。なお特異値分解を含め、行列分解の概要については別の小文でもまとめている。
+
+(https://kng-mtd.github.io/test0/matrixDecomposition)
+
+![](svd.jpg)
+<br><br>
+
+## 特異値分解、主成分分析は直交する因子を抽出する
+
+```{r}
+grViz("digraph {
+  graph [label='観測値と因子', labelloc=t,
+    layout = dot, rankdir = TB,
+    nodesep=0.5,ranksep=1]
+
+  
+  node [shape=rectangle]
+  f1 [label = '体力',shape=ellipse]
+  f2 [label = '知力',shape=ellipse]
+  f3 [label = '運',shape=ellipse]
+  v1 [label = 'マージャン']
+  v2 [label = '年俸']  
+  v3 [label = '100m走']
+  v4 [label = '遠投']
+
+  f1->v1
+  f1->v2
+  f1->v3
+  f1->v4
+  f2->v1
+  f2->v2
+  f2->v3
+  f2->v4
+  f3->v1
+  f3->v2
+  f3->v3
+  f3->v4
+
+}")
+```
+
++----------+---------+---------+------------+---------+
+| 選手     | 100ｍ走 | 遠投　  | マージャン | 年棒    |
++----------+---------+---------+------------+---------+
+| しおみ   | 6.0     | 100     | 3          | 10,000  |
+|          |         |         |            |         |
+| ながおか | 6.1     | 80      | 4          | 5,000   |
+|          |         |         |            |         |
+| やまだ   | 6.5     | 70      | 6          | 20,000  |
+|          |         |         |            |         |
+| むらかみ | 7.0     | 70      | 4          | 20,000  |
+|          |         |         |            |         |
+| オスナ   | 7.7     | 60      | 8          | 15,000  |
+|          |         |         |            |         |
+| サンタナ | 7.5     | 50      | 6          | 15,000  |
+|          |         |         |            |         |
+| なかむら | 7.5     | 80      | 8          | 12,000  |
+|          |         |         |            |         |
+| やまざき | 6.5     | 100     | 4          | 3,000   |
+|          |         |         |            |         |
+| いしかわ | 7.7     | 70      | 3          | 7,000   |
++----------+---------+---------+------------+---------+
+
+　たとえば、スポーツ選手を比較しようとするとき、まずいろいろな観測値を集める。それである程度の各選手の特徴を把握できる。しかし観測値は種類が多く（いくらでも集められる）、また観測値は多様な因子の組み合わせで決まるので、ある観測値が大きいと別の観測値も大きい、小さいなどの複雑な関係がある。分析者により、どの観測値を選び、どのように組み合わせるかに差、クセがでてくる、「いや、オレはこの数字とこの数字を見るよ」。
+<br>
+
+
+　もっと一般的に、体系的に対象の特徴抽出、比較、分類するには、複雑な関係にある観測値ではなく、観測値の元となる、かつ互いに関係を持たない因子を見つけるといい。因子間に関係がなければ、単純に個々の因子を大きい順に並べて、わかりやすく比較することができる。各因子が互いに関係を持たないとき（無相関のとき）、それらを「互いに直交する」という。主成分分析、特異値分解はそのような直交する因子をみつけて、対象を比較、分類、可視化する手法である（データ特有のハイパーパラメータなども不要）。
+<br>
+
+
+　特異値分解は、データ行列から互いに直交する因子を抽出し、各因子の重要性、各対象の特徴、各変数の特徴を同時に可視化するものである。対象を行、その変数を列とするデータ行列を、対象の特徴を表す直交する因子（左特異ベクトル）、変数の特徴を表す直交する因子（右特異ベクトル）、因子の重要性を表す特異値行列に分解するもの。
+<br>
+
+
+　主成分分析は、データがもつ変数の相関行列から互いに直交する因子（主成分）を抽出し、各因子の重要性、各対象の因子の大きさ（主成分スコア）を可視化する。 　 　 　変数間の相関行列を固有値分解し、固有ベクトル＝主成分と、固有値＝主成分の重要性、各対象がもつ主成分方向の大きさ（主成分スコア）を計算する。数学的には、互いに直行する分散の大きい方向をみつけることは、相関行列の固有値分解問題であり、対称行列である相関行列がもつ固有ベクトルは直交することが示されている。
+<br>
+
+
+　前処理により特異値分解、主成分分析は対象、変数の結果は同じになる（どちらでもいい）。計算が早い特異値分解、結果を理解しやすい主成分分析あたりで使い分けられている。
+<br><br>
+
+
+## データ行列の特異値分解
+
+
+### データとその前処理
+
+　例として３つの島に生息する、３種のペンギンの性別、体重、羽の長さ、嘴の長さ、嘴の幅の3年間調査であるpalmerpenguinsデータを使う。
+
+![](penguins0.jpg)
+
+```{r}
+tb0=penguins
+glimpse(tb0)
+summary(tb0)
+#datatable(tb0,options=list(scrollX=500))
+```
+
+<br>
+欠損値のある対象を除く。年度を量的変数から質的変数に型変換する。
+
+```{r}
+tb0 %<>%
+  drop_na() %>% 
+  mutate(year=as.factor(year))
+```
+
+
+量的変数の正規化
+
+　特異値分解でも主成分分析と同様、変数の[0,1]正規化や標準正規化をする、変数の単位が異なるときは必須。一部の変数を正規化することが障害になるかどうか、特異値分解前の変数の記述統計により検討し、その変数を除くことで対処する。もし正規化しない場合、特異値分解の結果の解釈を難しくする。
+
+```{r}
+tbn=tb0 %>%
+  select(is.numeric) # just numeric variable
+
+nn=names(tbn)
+l=c()
+u=c()
+
+for(i in nn){
+  l[i]=min(tbn[i])
+  u[i]=max(tbn[i])
+  tbn[i]=scale(tbn[i],center=l[i],scale=u[i]-l[i])
+}
+```
+
+
+質的変数のダミー変数化
+
+　質的変数を含むデータに対しても線形代数手法を適用するために、２値の質的変数は{0,1}のダミー変数、3水準以上の質的変数は複数の{0,1}のダミー変数に変換する。また質的変数が順序をもつとき、整数値の連続変数に変換することでほぼ対処できる。
+
+```{r}
+factor2ind=function(x, baseline){
+  xname=deparse(substitute(x))
+  n=length(x)
+  x=as.factor(x)
+  if(!missing(baseline)) x=relevel(x, baseline)
+  X=matrix(0L, n, length(levels(x)))
+  X[(1:n) + n*(unclass(x)-1)]=1L
+  X[is.na(x),]=NA
+  dimnames(X)=list(names(x), paste(xname, levels(x), sep = ":"))
+  return(X[,-1,drop=FALSE])
+}
+```
+
+```{r}
+tbc0=tb0 %>%
+  select(!is.numeric) # just categorical variable
+
+nc=names(tbc0)
+
+tbc=tibble(rep(NA,nrow(tbc0)))
+for(i in nc){
+  btb=as_tibble(factor2ind(tbc0[[i]]))
+  names(btb)=names(btb) %>%
+    str_replace('tbc0\\[\\[i\\]\\]',i)
+  tbc=tbc %>%
+    bind_cols(btb)
+}
+tbc=tbc[,-1]
+```
+
+
+　すべての変数から成る相関行列をみて、他の変数との相関が微小な連続変数を除く（当然、質的変数の別水準を表すダミー変数と逆相関があるだけのダミー変数も除く）。そのような変数は特異値分解の結果に影響しない。
+
+```{r}
+tb=bind_cols(tbn,tbc)
+
+par(mfrow=c(1,1))
+corrplot(cor(tb))
+
+tb=tb %>% 
+  select(-'year:2008',-'year:2009')
+tbc=tbc %>% 
+  select(-'year:2008',-'year:2009')
+```
+
+
+特異値分解する、前処理後のデータ行列
+
+```{r}
+glimpse(tb)
+summary(tb)
+```
+<br><br>
+
+
+### 特異値分解の結果
+
+　特異値分解では、データ行列（行が各対象、列は変数）の元の変数と同じ数（本データは９コ）の特異値が計算される。 適当な「次数」＝因子数を決めて、特異値分解を打ち切る。対象数×次数の左特異ベクトル行列、次数次元の正方行列である特異値行列、変数の数×次数の右特異ベクトル行列ができる。
+
+
+　たとえば次数を４としたとき、左特異ベクトル行列は対象を４コの数値（＝因子の大きさ）で表したもの。特異値行列は各因子が対象の特徴をどれだけ表すかの重み。右特異ベクトル行列は各因子が元の各変数とどれだけ相関するかを示す重みであり、すなわち元の変数の特徴を４コの数値で表したものとなる。
+
+```{r}
+k=4
+ku=k
+kv=k
+s=svd(tb,ku,kv) #u:n x ku, d:ku x kv, v:m x kv
+#s
+#s$d #singular value
+
+u=s$u #left singular matrix
+head(u,10)
+d=diag(s$d[1:k])
+d
+v=s$v #right singular matrix
+head(v,10)
+```
+
+
+　元の行列は左特異ベクトル行列、特異値行列、右特異ベクトル行列の積で近似される（近似行列）。特異値分解による近似行列は、あらゆる行列分解のうち、元の行列に最も近似する（行列要素間の差のﾌﾛﾍﾞﾆｳｽﾉﾙﾑ最小）（Eckart-Youngの定理）。左右の特異ベクトル行列、特異値行列の要素数の合計が、元のデータ行列の要素数よりも少なくなれば圧縮できるが、どれだけ元の行列と近似行列が近いのかを確認するには、以下のような方法があるだろう。
+<br>
+
+
+-   行列全体の数値をヒートマップで（直感的に）比べる
+
+-   量的変数の各要素の差をみる（平均二乗誤差 MSE、二乗誤差の分散 V[SE]）
+
+-   近似行列の各量的変数の基本統計量をみる
+
+-   各質的変数のクロス表をみる（近似行列の数値は0.5を境界に0,1に分ける）
+
+-   各量的変数の分布をボックスプロット、ヒストグラムで（直感的に）比べる
+
+-   各量的変数の平均の差をｔ検定する
+
+-   相関行列を比べる
+
+-   散布図行列を（直感的に）比べる
+
+
+```{r}
+row.names(v)=names(tb)
+
+tb_svd0=as_tibble(u %*% d %*% t(v))
+tbn_svd=tb_svd0 %>%
+  select(names(tbn))
+tbc_svd=tb_svd0 %>%
+  select(names(tbc))
+tbc_svd[tbc_svd<.5]=0
+tbc_svd[tbc_svd>.5]=1
+
+tb_svd=bind_cols(tbn_svd,tbc_svd)
+
+heatmap(as.matrix(tb),Rowv=NA,Colv=NA,scale='none',margins=c(10,3),main='origin')
+#heatmap(u %*% d %*% t(v),Rowv=NA,Colv=NA,scale='none',margins=c(10,3))
+heatmap(as.matrix(tb_svd),Rowv=NA,Colv=NA,scale='none',margins=c(10,3),main='SVD4')
+
+cat('MSE: ',mean((tbn-tbn_svd)**2 |> unlist()))
+cat('V[SE]: ',var((tbn-tbn_svd)**2 |> unlist()))
+
+summary(tb_svd)
+
+for(i in names(tbc)){
+  cat('\n',i)
+  table(tbc[[i]],tbc_svd[[i]]) %>% print()
+  #wilcox.test(tb[[i]],tb_svd[[i]]) %>% print()
+}
+
+
+par(mfrow=c(1,1))
+boxplot(tbn,main='origin')
+boxplot(tbn_svd,main='SVD4')
+
+par(mfrow=c(2,1))
+for(i in names(tbn)){
+  hist(tb[[i]],main=i,xlim=c(0,1.5))
+  hist(tb_svd[[i]],main='',xlim=c(0,1.5))
+  
+  #a=cor(tb[i],tb_svd[i])
+  #cat(i,' correlation:',a[[1]],'\n')
+  t.test(tbn[i],tbn_svd[i]) %>% print()
+}
+
+cat('origin')
+cor(tbn)
+cat('SVD4')
+cor(tbn_svd)
+
+plot(tbn,main='origin')
+plot(tbn_svd,main='SVD4')
+
+# psyck::r.test
+# 1.H0 r12=0, n single group
+#   r.test(n,r12)
+# 2,H0 r12=r34, n1,n2 not correspond groups
+#   r,test(n=n1,r12,n2=n2,r34)
+# 3,H0 r12=r13, n correspond groups
+#   r.test(n,r12,r23,r13)
+# 4.H0 r12=r34, n correspond groups
+#   r.test(n,r12,r34,r23,r13,r14,r24)
+
+#rtest=r.test(nrow(tbn),cor(tbn),cor(tbn_svd))
+#rtest$p
+
+```
+
+
+　近似行列において、量的変数の平均、中央値は再現されている。ダミー変数の値{0,1}を、近似行列では{0,1}に近い数値でほぼ再現されている。分布の形はほぼ再現されるが、ノイズ、外れ値が除去されている。相関関係の大小がより強調されている。散布図から、複数のクラスの別々の相関関係をみることができる。
+<br><br>
+
+
+## 特異値分解の結果から新たな「観測値」を予測する
+
+![](penguins1.jpg)
+
+　観測値を単純化した近似行列を、母集団の母数とすることができるかもしれない。観測値はそれにノイズが加わったものとするモデルが考えられる。そこで特異値分解の結果にノイズを加えた「観測値」をつくってみる。
+<br>
+
+
+　近似行列の全要素に上下10%の一様乱数を加えたものを10コから成る、対象数を10倍にした拡張データをつくった。拡張データから元と同じ対象数をサンプリングをすることで「観測」をシミュレーションした。
+
+```{r}
+expd0=tibble()
+for(i in 1:10){ # 10times
+  tb1=as_tibble(u %*% d %*% t(v))*runif(nrow(tb)*ncol(tb),0.9,1.1) # ±10%
+  expd0=bind_rows(expd0,tb1)
+}
+
+expdn=expd0 %>%
+  select(names(tbn))
+expdc=expd0 %>%
+  select(names(tbc))
+expdc[expdc<.5]=0
+expdc[expdc>.5]=1
+
+expd=bind_cols(expdn,expdc)
+
+#glimpse(expd)
+datatable(expd,options=list(scrollX=500))
+summary(expd)
+
+write_csv(expd,'penguins_expand.csv')
+```
+
+```{r}
+expd=read_csv('penguins_expand.csv')
+
+tb1=sample_n(expd,333) #sample n=333 
+tb1n=tb1 %>% select(names(tbn))
+
+par(mfrow=c(1,1))
+boxplot(tbn,main='origin')
+boxplot(tb1n,main='new obs.')
+
+par(mfrow=c(2,1))
+for(i in names(tbn)){
+  hist(tb[[i]],main=i,xlim=c(0,1.5))
+  hist(tb1[[i]],main='',xlim=c(0,1.5))
+
+  t.test(tb[i],tb1[i]) %>% print()
+}
+
+cat('origin')
+cor(tbn)
+cat('new obs.')
+cor(tb1n)
+
+plot(tbn,main='origin')
+plot(tb1n,main='new obs.')
+
+```
+<br><br>
+
+
+## ランダム行列による特異値分解
+
+![](rsvd1.jpg)
+<br><br>
+
+![](rsvd2.jpg)
+
+```{r,cache=T}
+library(imager)
+
+img0=load.image('image1.jpg')
+#plot(img0,axes=F)
+
+img=grayscale(img0) #[0,1]
+#plot(img,axes=F)
+save.image(img,'image10.jpg')
+
+mx=as.matrix(img)
+img=as.cimg(mx)
+plot(img,axes=F,main='origin')
+
+w0=dim(mx)[1]
+h0=dim(mx)[2]
+cat('width: ',w0,'   height: ',h0)
+
+img1=resize(img,w0/64,h0/64) 
+plot(img1,axes=F,main='1/64')
+
+```
+```{r,include=F}
+gc(reset=T)
+```
+```{r,cache=T}
+k=20
+#cat('\nSVD k:',k)
+system.time({
+  s=svd(mx,k,k)
+  u=s$u
+  d=diag(s$d[1:k])
+  v=s$v
+  tb1=u %*% d %*% t(v)
+})  
+  img=as.cimg(tb1)
+  plot(img,axes=F,main=str_c('SVD ',k))
+  save.image(img,'image1svd20.jpg')
+```
+```{r,include=F}
+gc(reset=T)
+```
+```{r,cache=T}
+#cat('\nrSVD k:',k)
+system.time({
+  s=rsvd(mx,k)
+  u=s$u
+  d=diag(s$d[1:k])
+  v=s$v
+  tb1=u %*% d %*% t(v)
+})
+  img=as.cimg(tb1)
+  plot(img,axes=F,main=str_c('rSVD ',k))
+  save.image(img,'image1rsvd20.jpg')
+```
+
+
+```{r,include=F}
+gc(reset=T)
+```
+```{r,cache=T}
+k=50
+#cat('\nSVD k:',k)
+system.time({
+  s=svd(mx,k,k)
+  u=s$u
+  d=diag(s$d[1:k])
+  v=s$v
+  tb1=u %*% d %*% t(v)
+})
+  img=as.cimg(tb1)
+  plot(img,axes=F,main=str_c('SVD ',k))
+  save.image(img,'image1svd50.jpg')
+```
+```{r,include=F}
+gc(reset=T)
+```
+```{r,cache=T}
+#cat('\nrSVD k:',k)
+system.time({
+  s=rsvd(mx,k)
+  u=s$u
+  d=diag(s$d[1:k])
+  v=s$v
+  tb1=u %*% d %*% t(v)
+})
+  img=as.cimg(tb1)
+  plot(img,axes=F,main=str_c('rSVD ',k))
+  save.image(img,'image1rsvd50.jpg')
+```
+
