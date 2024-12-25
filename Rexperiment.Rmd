@@ -1,0 +1,996 @@
+---
+title: "R experiment"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    code_folding: hide 
+#date: "`r Sys.Date()`"
+---
+
+<style type="text/css">
+  body{
+  font-size: 12pt;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=T,warning=F,message=F,comment='')
+
+suppressWarnings(
+  suppressMessages(
+    suppressPackageStartupMessages({
+      library(stats)
+      library(MASS)
+      library(tidyverse)
+      library(magrittr)
+      
+      library(palmerpenguins)　#サンプルデータ用
+      
+      library(DT)　#テーブル表示ライブラリ
+      library(htmlTable) #テーブル表示ライブラリ
+      library(plotly)　#グラフ表示ライブラリ
+      library(DiagrammeR) #ダイアグラム表示ライブラリ
+    })
+  )
+)
+options(scipen=100,digits=3)
+```
+
+
+
+#ellipse solver
+```{r}
+#ellipse
+# (x-x0 /a)**2+(y-y0 /b)**2=1
+
+x0=1 #center x
+y0=-1 #center y
+a=2 #range of x /2 
+b=3 #range of y /2
+# if a==b, a,b is radius 
+
+n=50
+
+x=runif(n,-a,a)+x0
+y=( (1-(x-x0)**2/a**2) *b**2 )**.5 *sign(runif(n,0,2)-1) +y0
+tb0=tibble(x,y)
+tb0
+plot(tb0)
+
+
+fn0=function(p,tb){
+  sum(((tb$x-p[1])**2/p[3] + (tb$y-p[2])**2/p[4] -1)**2) #p(x0,y0,a**2,b**2)
+}
+
+rst=optim(c(0,0,1,2),fn=fn0,tb=tb0)
+
+rst$par
+rst$value
+
+
+c=pi/6
+x1=x*cos(c)-y*sin(c)
+y1=x*sin(c)+y*cos(c)
+tb1=tibble(x1,y1)
+tb1
+plot(tb1)
+
+pr=prcomp(tb1)
+plot(pr$x)
+```
+
+
+
+#fourier transform
+```{r}
+# 周波数 5Hz の正弦波を含むデータ
+t <- seq(0,1, length.out = 32) # 時間軸（0から1秒まで）
+freq <- 5                        # 5Hzの周波数
+signal <- sin(2 * pi * freq * t) # 5Hzの正弦波信号
+
+plot(t, signal, type = "l", col = "blue", main = "Original", ylab = "Signal")
+
+
+# フーリエ変換を実行
+fft_result <- fft(signal)
+
+# 結果の表示
+print(fft_result)
+
+# 振幅スペクトルの計算
+amplitude <- Mod(fft_result)
+
+# 振幅スペクトルのプロット
+plot(amplitude, type = "h", main = "Amplitude Spectrum", xlab = "Frequency", ylab = "Amplitude")
+
+# 位相スペクトルの計算
+phase <- Arg(fft_result)
+
+# 位相スペクトルのプロット
+plot(phase, type = "h", main = "Phase Spectrum", xlab = "Frequency", ylab = "Phase (radians)")
+
+
+# フーリエ逆変換
+inverse_fft <- fft(fft_result, inverse = TRUE) / length(fft_result)
+
+# 元の信号との比較
+plot(t, signal, type = "l", col = "blue", main = "Original and Inverse FFT Signal", ylab = "Signal")
+lines(t, Re(inverse_fft), col = "red", lty = 2) # 再構築された信号
+legend("topright", legend = c("Original Signal", "Inverse FFT Signal"), col = c("blue", "red"), lty = 1:2)
+
+```
+
+
+
+#compare adjecent
+## cross sort function
+
+```{r}
+cross_sort=function(m0){
+  #print(m0)
+  k=nrow(m0)
+  m0=cbind(m0,seq(1,k))
+  a=vector()
+  for(i in 1:k){
+    a[i]=str_c(m0[i,]) %>% paste(collapse='')
+  }
+  #print(a)
+  a=sort(a)
+  r=str_sub(a,k+1,)
+  m1=str_sub(a,1,k) %>% 
+    str_split('') %>%
+    unlist() %>%
+    matrix(k,k) 
+  #print(m1)
+  m1=cbind(m1,seq(1,k))
+  a=vector()
+  for(i in 1:k){
+    a[i]=str_c(m1[i,]) %>% paste(collapse='')
+  }
+  #print(a)
+  a=sort(a)
+  c=str_sub(a,k+1,)
+  m2=str_sub(a,1,k) %>% 
+    str_split('') %>%
+    unlist() %>%
+    as.integer() %>% 
+    matrix(k,k)
+  #print(m2)
+  
+  return (list(m2,r,c))
+}
+
+```
+
+```{r}
+k=10
+p=0.3
+```
+
+## cross sort andirectional graph adjecent matrix and compare them
+```{r}
+m=matrix(0,k,k)
+for(i in 1:(k-1)){
+  for(j in (i+1):k){
+    m[i,j]=rbinom(1,1,p)
+    m[j,i]=m[i,j]
+  }
+}
+m
+visNetwork(nodes=tibble(id=1:k),edges=mat2link(m,F))
+
+eigen(m)$values %>% round(2)
+
+a=cross_sort(m)
+ma=a[[1]]
+ra=a[[2]]
+ca=a[[3]]
+ma
+ra
+ca
+m=matrix(0,k,k)
+for(i in 1:(k-1)){
+  for(j in (i+1):k){
+    m[i,j]=rbinom(1,1,p)
+    m[j,i]=m[i,j]
+  }
+}
+m
+visNetwork(nodes=tibble(id=1:k),edges=mat2link(m,F))
+
+eigen(m)$values %>% round(2)
+
+b=cross_sort(m)
+mb=b[[1]]
+rb=b[[2]]
+cb=b[[3]]
+mb
+rb
+cb
+
+(sum(ma==mb)-k)/(k**2-k)
+
+```
+
+
+## cross sort directional graph adjecent matrix and compare them
+```{r}
+m=matrix(rbinom(k**2,1,p),k,k)
+m
+visNetwork(nodes=tibble(id=1:k),edges=mat2link(m,F))
+
+a=cross_sort(m)
+ma=a[[1]]
+ra=a[[2]]
+ca=a[[3]]
+ma
+
+m=matrix(rbinom(k**2,1,p),k,k)
+m
+visNetwork(nodes=tibble(id=1:k),edges=mat2link(m,F))
+
+b=cross_sort(m)
+mb=b[[1]]
+rb=b[[2]]
+cb=b[[3]]
+mb
+
+sum(ma==mb)/k**2
+
+```
+
+
+
+# count word
+```{r}
+a=vector()
+
+a[1]='Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum non sem blandit, sagittis enim ut, semper augue. Donec ullamcorper bibendum nisi, non ullamcorper lorem scelerisque ut. Quisque in ante dolor. Integer pretium, elit nec consectetur facilisis, enim urna molestie velit, at tristique urna nulla in justo. Integer consequat ipsum velit, id malesuada nisl posuere vitae. Aliquam erat volutpat. Etiam quis augue vel diam cursus efficitur. Maecenas imperdiet mollis varius. Nunc tincidunt enim et ultrices ullamcorper. Mauris interdum fringilla tempus. Praesent auctor imperdiet leo, non efficitur lorem condimentum id. Interdum et malesuada fames ac ante ipsum primis in faucibus. Phasellus condimentum tellus quam, vel posuere dolor convallis ut. Vestibulum semper, orci ac blandit eleifend, mi massa faucibus ante, sed convallis ante augue varius lectus. Suspendisse aliquam, mi vel varius mattis, velit enim varius lorem, eget suscipit tellus quam at neque. Etiam luctus erat vitae auctor luctus.'
+
+a[2]='Vestibulum sed tempus risus. Maecenas vitae orci molestie, elementum nunc quis, tristique nibh. Duis a diam sit amet purus malesuada egestas. Vestibulum sit amet tortor sollicitudin est laoreet accumsan. Vestibulum ut auctor nibh. Integer eu purus a arcu efficitur rhoncus. Integer pellentesque quam neque, eu blandit ligula consequat quis. Pellentesque ullamcorper vel purus vel facilisis. In massa eros, bibendum et justo eu, egestas faucibus sem.'
+
+a[3]='Donec faucibus tellus vitae leo eleifend, quis molestie ex ultricies. Nullam imperdiet arcu sit amet porta viverra. Nam sed est sollicitudin, suscipit ligula ut, maximus augue. Suspendisse potenti. Sed pellentesque, urna sit amet suscipit molestie, justo velit pretium lacus, id sagittis sem quam a erat. In ut pulvinar velit. Curabitur vehicula odio hendrerit tellus tincidunt cursus. Aenean malesuada metus sollicitudin turpis tristique efficitur. Suspendisse a risus porta, elementum sapien eget, tincidunt purus. In ullamcorper nisi at erat venenatis auctor. Integer pharetra maximus velit in pellentesque. Sed condimentum blandit lorem, in maximus dolor vulputate quis. Maecenas pharetra eget turpis sed commodo. Duis ac justo efficitur, tristique odio eget, tristique augue.'
+
+a[4]='Nunc egestas arcu mollis molestie venenatis. Etiam ut neque risus. Nullam ut elit sem. Cras eu ullamcorper velit. Morbi blandit eros a eros faucibus tristique. Donec ac magna vitae lacus placerat egestas. Praesent ante augue, porta cursus justo nec, porttitor hendrerit sem. Quisque justo ligula, laoreet ac sem et, semper rutrum libero. Nunc feugiat felis sit amet placerat maximus. Duis porttitor consequat nulla ac pretium. Suspendisse sed posuere arcu. Fusce pellentesque, neque sit amet pellentesque finibus, leo dolor consectetur elit, a ultrices purus orci ut urna. Maecenas tempor magna a mi sollicitudin, sit amet luctus sapien venenatis.'
+
+a[5]='Aliquam dapibus venenatis tincidunt. Praesent at aliquet nibh. Donec eu ipsum sed nulla accumsan ullamcorper. Integer ornare magna sed iaculis auctor. Aenean consectetur blandit tellus, vel iaculis tellus pharetra sed. Sed rutrum est vitae sodales ullamcorper. Nullam molestie, odio sed porttitor maximus, nisl lorem mollis urna, sit amet semper libero ipsum vitae quam. Pellentesque vitae vulputate ligula. Fusce consectetur eu nulla eget laoreet. Phasellus aliquet mi at augue ultrices, sagittis semper arcu porttitor. Praesent at facilisis massa, quis hendrerit odio.' 
+
+aa=paste0(a[1],a[2],a[3],a[4],a[5]) |>
+  str_remove_all('[[:punct:]]') |>
+  str_remove_all('[0-9]')
+
+b0=str_split(aa,' ') |> unlist()
+b1=unique(b0)
+
+tb=tibble()
+for(i in a){
+  b2=str_split(i,' ') |> unlist()
+  c=vector()
+  for(j in b2) c[j]=sum(b2==j);
+  tb=bind_rows(tb,c)
+}
+tb
+```
+
+
+
+# draw map
+
+ライブラリNipponMapより
+
+JapanPrefMap()
+　オプション
+　　県の配色　col=vector[1:47]
+　　境界線の色　border=rgb(r,g,b,a)/ '#RRGGBB'/ gray(x,a) x:[0,1],a:[0,1]
+　　沖縄の位置　inset=T/F　右上／原位置
+
+県の中心(lng,lat)　xy=JapanPreMap()
+
+```{r}
+#県JISコード、県名、人口(2015)、地方名
+prf=foreign::read.dbf(system.file("shapes/jpn.dbf", package="NipponMap"))
+
+library(NipponMap)
+par(mar=c(0,0,0,0))
+cols=rep('gray',47) %+% (100-ceiling(prf$population/140000))
+#cols=sample(colors(),47)
+JapanPrefMap(col=cols,border=gray(.5))
+box()
+```
+
+
+座標（緯度、経度）への図形描画
+symbols(x,y,
+ circles=r/ squares=l/ rectangles=c(w,h)/ stars=c(a0,a1,a2,...)/
+ thermometers=c(w,h,p)/ boxplots=c(w,h,lw_l,uw_l,p)/
+
+ add=T/F,　直前プロットへ追加／新規
+ inches=F/T,　座標上の大きさ／画面上の大きさ
+ fg=x,　線の色
+ bg=x,　面の色
+
+ xlim=c(min lng, max lng), ylim=c(min lat, max lat)
+ main='---', xlab='---', ylab='---'
+)
+
+凡例
+legend(
+ "bottomright"/ "bottom"/ "bottomleft"/ "left"/ "topleft"/
+ "top"/ "topright"/ "right"/ "center"
+
+ c('name1','name2',...),
+ pch=c(chr1,chr2,...),
+ fill=c(col1,col2,...)
+ bty='o' or 'n' 凡例の枠線の有無 
+ ...
+)
+
+```{r}
+par(mar=c(0,0,0,0))
+xy=JapanPrefMap(border=gray(.5)) # xy:prefecture (lng,lat)
+symbols(xy,circles=prf$population*5e-8,inches=F,add=T,
+        fg='red',bg=rgb(1,0,0,0.3))
+legend('bottom','population',fill='red',bty='o')
+```
+
+
+
+ライブラリmaps、mapdataより
+
+世界地図
+map( 
+  wrap=c(0,360)/ c(-180,180),　太平洋中心／大西洋中心
+  xlim=c(min lng,max lng), ylim=c(min lat, max lat),
+  interior=F/T,　国境
+  fill=T,col=c()　国境で塗分け
+)
+
+緯度経度追加
+map.axes()
+
+国指定
+map(regions=c('japan','south korea','north korea'))
+
+指定国ポリゴン名リスト
+map(regions=c('japan','south korea','north korea'),plot=F)$names
+
+ISO3166-1リスト
+data(iso3166)
+
+ISOコード（２文字／３文字）を国名に変換
+iso.expand('JP'/'JPN')
+
+国名をISOコード（２文字／３文字）に変換
+iso.alpha('japan', n=2/3)
+
+日本地図
+map('japan')
+
+```{r}
+library(maps)
+library(mapdata)
+
+par(mar=c(0,0,0,0))
+map()
+```
+
+```{r}
+#指定経緯へプロット、テキスト記入
+par(mar=c(0,0,0,0))
+map(wrap=c(0,360))
+lng=140
+lat=35.5
+points(lng,lat,col="red",pch=1)
+text(lng+5,lat-5,"Japan!",col="red")
+
+
+#マップ全体のポリゴン名リスト
+name=map(regions=c('japan','south korea','north korea'),plot=F)$names
+#マップ内指定国のポリゴン名リスト
+str_subset(name,regex('korea',ignore_case = T))
+
+#指定国塗分け
+par(mar=c(0,0,0,0))
+map(regions=c('japan','south korea','north korea'),
+    fill=T,
+    col=name %>%
+      str_detect(regex('japan|north korea',ignore_case=T)) %>%
+      if_else(2,0))
+
+#失敗　ポリゴン塗分け
+par(mar=c(0,0,0,0))
+map(regions=c('japan','south korea','north korea'),fill=T,col=1:3)
+```
+
+```{r}
+#日本県境
+par(mar=c(0,0,0,0))
+map("japan", interior=F,xlim=c(134,137),ylim=c(33,36))
+map('japan',lty=2,add=T)
+lng=135.50
+lat=34.69
+points(lng,lat,col="red",pch=1)
+text(lng+0.2,lat-0.2,"Here!",col="red")
+```
+
+
+
+#image to matrix
+```{r}
+library(imager)
+
+img0=load.image('image0.jpeg')
+plot(img0,axes=F)
+
+img=resize(img0,200,250)
+plot(img,axes=F) #or plot(as.raster(img))
+nrow(img)
+ncol(img)
+
+img=grayscale(img) #[0,1]
+plot(img,axes=F,main='origin')
+
+# 微分フィルタ
+dffilterX = as.cimg(
+  array(c(0,0,0,-1,1,0,0,0,0), c(3,3)))
+dffilterY = as.cimg(
+  t(array(c(0,0,0,-1,1,0,0,0,0), c(3,3))))
+# [0,1] to [-1,1] by convolutin 
+dfx=convolve(img,dffilterX)
+dfy=convolve(img,dffilterY)
+plot(imlist(dfx=dfx,dfy=dfy), layout="row",axes=F)
+
+dfx=abs(dfx)
+plot(-dfx,axes=F,main='diff x')
+dfy=abs(dfy)
+plot(-dfy,axes=F,main='diff y')
+
+dfxy=pmax(dfx,dfy)
+plot(-dfxy,axes=F,main='diff x&y')
+
+mx0=as.matrix(dfxy)
+
+k=50
+
+pca=prcomp(mx0)
+
+mx=pca$x[,1:k] %*% t(pca$rotation[,1:k]) %>%
+  scale(center=-pca$center,scale=F) 
+
+img=as.cimg(mx)
+plot(-img,main=str_c('pca; ',k))
+
+
+
+ku=k
+kv=k
+system.time({
+  svd=svd(mx0,ku,kv)#u n*ku, d ku*kv, v m*kv
+}) 
+#svd$d #singular value
+d=diag(svd$d[1:k])
+u=svd$u #left singular matrix
+v=svd$v #right singular matrix
+mx=u %*% d %*% t(v)
+
+img=as.cimg(mx)
+plot(-img,main=str_c('svd; ',k))
+
+
+library(NMF)
+system.time({
+  res=nmf(mx0,k) # rank k approximation
+})
+w=basis(res) # W matrix
+h=coef(res) # H matrix
+mx=w%*%h
+
+img=as.cimg(mx)
+plot(-img,main=str_c('nmf; ',k))
+```
+
+
+
+#nmf
+```{r}
+library(NMF)
+
+a=rmatrix(10,5)
+
+#A=WH
+res=nmf(a,2) # rank 2 approximation
+
+w=basis(res) # W matrix
+w
+h=coef(res) # H matrix
+h
+
+fitted(res)
+w%*%h
+
+res=nmf(a,c(2,3,4)) # nmf by each rank
+plot(res)
+
+res=nmf(a,2,.options='t') # nmf with trace
+plot(res)
+
+layout(cbind(1,2))
+basismap(res) # max element by row in W matrix
+coefmap(res) # max element by column in H matrix
+
+############
+
+# nmf for penguins data
+
+tb0=penguins %>%
+  drop_na() %>% 
+  mutate(year=as.factor(year))
+
+tbn=tb0 %>%
+  select(is.numeric) # just numeric variable
+
+nn=names(tbn)
+l=c()
+u=c()
+
+# standardization [0,1] for numeric variable
+for(i in nn){
+  l[i]=min(tbn[i])
+  u[i]=max(tbn[i])
+  tbn[i]=scale(tbn[i],center=l[i],scale=u[i]-l[i])
+}
+
+str(tbn)
+
+
+
+factor2ind <- function(x, baseline){
+  
+  xname <- deparse(substitute(x))
+  n <- length(x)
+  x <- as.factor(x)
+  if(!missing(baseline)) x <- relevel(x, baseline)
+  X <- matrix(0L, n, length(levels(x)))
+  X[(1:n) + n*(unclass(x)-1)] <- 1L
+  X[is.na(x),] <- NA
+  dimnames(X) <- list(names(x), paste(xname, levels(x), sep = ":"))
+  return(X[,-1,drop=FALSE])
+}
+
+
+tbc0=tb0 %>%
+  select(!is.numeric) # just categorical variable
+
+nc=names(tbc0)
+
+# make binary variable 0/1 for each level
+tbc=tibble(rep(NA,nrow(tbc0)))
+for(i in nc){
+  btb=as_tibble(factor2ind(tbc0[[i]]))
+  names(btb)=names(btb) %>%
+    str_replace('tbc0\\[\\[i\\]\\]',i)
+  tbc=tbc %>%
+    bind_cols(btb)
+}
+tbc=tbc[,-1]
+
+str(tbc)
+
+tb=bind_cols(tbn,tbc)
+str(tb)
+summary(tb)
+
+cor(tb)
+
+par(mfrow=c(1,1))
+
+res=nmf(tb,c(3,4,5))
+plot(res)
+
+res=nmf(tb,3,.options='t')
+plot(res)
+
+w0=basis(res) # W matrix
+w=w0
+w[w<0.001]=0
+
+h0=coef(res) # H matrix
+h=h0
+h[h<0.001]=0
+
+fitted(res)
+
+tb_res=as_tibble(fitted(res))
+str(tb_res)
+
+tb_sp=as_tibble(w %*% h)
+str(tb_sp)
+
+summary(tb)
+summary(tb_res)
+summary(tb_sp)
+max(tb-tb_sp)
+max(tb_res-tb_sp)
+
+
+library(corrplot)
+corrplot(cor(tb))
+corrplot(cor(tb_sp))
+
+par(mfrow=c(2,1))
+for(i in names(tb)){
+  hist(tb[[i]],main=i,xlim=c(0,1.5))
+  hist(tb_sp[[i]],main='',xlim=c(0,1.5))
+  a=cor(tb[i],tb_sp[i])
+  cat(i,':',a[[1]],'\n')
+}
+
+
+# see distribution -> not normal dist.
+par(mfrow=c(1,1))
+apply(w,2,hist) 
+cov(w)
+cor(w)
+plot(as_tibble(w))
+
+# if w follows normal dist.
+library(MASS)
+mvrnorm(10,apply(w,2,mean),cov(w))
+
+
+# see w follows poisson dist.
+m=apply(w,2,mean)
+m
+v=apply(w,2,var)
+v
+
+# gamma dist. parameters
+# a: shape, b: rate, c: scale=1/rate
+# f(x)=b^a/Ga(a) * x^(a-1)*exp(-bx) s.t. x>0
+# a=mean^2/var, b=mean/var
+
+rgamma(100,shape=m[1]**2/v[1],rate=m[1]/v[1]) %>% hist()
+rgamma(100,shape=m[2]**2/v[2],rate=m[2]/v[2]) %>% hist()
+rgamma(100,shape=m[3]**2/v[3],rate=m[3]/v[3]) %>% hist()
+
+# w1 from gamma dist. random -> w2, w3
+# w2=b20+b21*w1 -> b21=cov(w1,w2)/var(w1), b20=mean(w2)-mean(w1)*b21
+# w3=b30+b31*w1 -> b31=cov(w1,w3)/var(w1), b30=mean(w3)-mean(w1)*b31
+
+# similarly,
+# w2 from gamma dist. random -> w1, w3
+# w3 from gamma dist. random -> w2, w3
+
+```
+
+
+
+#mecab
+```{r}
+library(RMeCab)
+
+tx=read_csv('sampleText.txt',col_names=F)
+
+wakachi=tibble(nouns='')
+for(i in 1:nrow(tx)){
+  a=RMeCabC(tx[i,]) %>% unlist()
+  
+  
+  b=str_c(a[names(a)=='名詞'] %>% as.character(),collapse=' ')
+  wakachi=bind_rows(wakachi,c(nouns=b))
+}
+wakachi=wakachi[-1,]
+wakachi
+```
+
+
+
+#optimize matrix
+```{r}
+# サンプルデータの作成
+n=3  # サンプル数
+p=3  # 特徴量の数
+
+x0=matrix(rnorm(p * n), nrow = p, ncol = n)  # 入力データ行列
+cat('data:\n')
+print(x0)
+
+x1=x0[1:p,1:n-1]
+print(x1)
+x2=x0[1:p,2:n]
+print(x2)
+
+# 目的関数の定義
+obj_fn <- function(w) {
+  w <- matrix(w, nrow = p, ncol = p)
+  prd <- w %*% x1
+  sum((x2 - prd)^2)
+}
+
+# 初期値の設定
+prm0 <- runif(p*p)
+
+# optim関数を使って最適化
+rst <- optim(par = prm0, fn = obj_fn)
+
+# 結果の表示
+prm <- matrix(rst$par, nrow = p, ncol = p)
+opt_val <- rst$value
+
+options(digits=3,nsmall=3)
+cat('Optimal Parameters:\n')
+print(prm)
+cat('Optimal Value:',opt_val,'\n')
+```
+
+```{r}
+# サンプルデータの作成
+n=10  # サンプル数
+p=47  # 特徴量の数
+
+x0=matrix(rnorm(p * n), nrow = p, ncol = n)  # 入力データ行列
+x1=x0[1:p,1:n-1]
+x2=x0[1:p,2:n]
+
+# 目的関数の定義
+obj_fn <- function(w) {
+  w <- matrix(w, nrow = p, ncol = p)
+  prd1 <- w %*% x1
+  prd2 <- w %*% x2
+  sum((x2 - prd1)^2)+sum((x1-prd2)^2)
+}
+
+# 初期値の設定
+prm0 <- runif(p*p)
+
+# optim関数を使って最適化
+rst <- optim(par = prm0, fn = obj_fn)
+
+# 結果の表示
+prm <- matrix(rst$par, nrow = p, ncol = p)
+opt_val <- rst$value
+
+cat('Optimal Parameters:\n')
+print(prm)
+cat('Optimal Value:',opt_val,'\n')
+```
+
+
+
+#other PCA
+```{r}
+m0=matrix(as.integer(runif(1e7,-1,1)),1e4,1e3)
+m0=matrix(as.integer(rbinom(1e7,1,0.1)),1e4,1e3)
+m0=matrix(as.integer(rnorm(1e7,0,1)),1e4,1e3)
+
+#m0=matrix(as.integer(rbinom(1e8,1,0.1)),1e5,1e3)
+
+system.time({
+  pca=prcomp(m0,scale.=T,rank.=10)
+  pca$sdev
+  pca$rotation
+  pca$x
+  summary(pca)
+})
+
+
+library(Matrix)
+
+#ms=Matrix(m0,sparse=T)
+
+ms=Matrix(as.integer(rbinom(1e7,1,0.1)),1e4,1e3,sparse=T)
+#ms=Matrix(as.integer(rbinom(1e8,1,0.1)),1e5,1e3,sparse=T)
+
+system.time({
+  pca=prcomp(ms,scale.=T,rank.=10)
+  pca$sdev
+  pca$rotation
+  pca$x
+  summary(pca)
+})
+gc()
+
+
+library(irlba)
+
+system.time({
+  pca=prcomp_irlba(ms,10,scale.=T)
+  pca$sdev
+  pca$rotation
+  pca$x
+  summary(pca)
+})
+
+
+
+
+
+#svd
+
+svd(m0,2)
+svd(ms,2)
+
+library(irlba)
+
+irlba(m0,2)
+irlba(ms,2)
+
+library(rsvd)
+
+rsvd(m0,2)
+rsvd(ms,2)
+```
+
+
+
+#text mining
+```{r}
+source("http://rmecab.jp/R/Aozora.R")
+file=Aozora("https://www.aozora.gr.jp/cards/000035/files/2253_ruby_1031.zip")
+tx=read.table(file,header=F,fileEncoding = "UTF-8")
+
+
+install.packages("RMeCab", repos = "http://rmecab.jp/R")
+library(RMeCab)
+
+
+rst=RMeCabText('viyon.txt')
+mx=matrix(ncol=10)
+colnames(mx)=c('term','cat0','cat1','cat2','cat3','conjugate0','conjugate1','prototype','kana0','kana1')
+for(i in 1:length(rst)) mx=rbind(mx,(rst[[i]] |> t()))
+mx
+
+
+mcbRst=RMeCabDF(tx,1,1)
+
+tb=mcbRst %>% 
+  imap_dfr(~data.frame(term=.,
+                       class=names(.),
+                       sentences=.y,
+                       stringsAsFactors = F)) %>% 
+  as_tibble()
+
+write_csv(tb,'./dat.csv')
+
+
+tb1=tb %>%
+  filter(class=='名詞') %>% 
+  group_by(term,sentences) %>% 
+  mutate(n=n()) %>%
+  select(-class) %>% 
+  distinct()
+
+tb1
+
+bow=tb1 %>% 
+  pivot_wider(names_from = term,
+              values_from = n,
+              values_fill = list(n=0))
+
+bow
+word=colnames(bow)
+bow=as.tibble(bow)
+
+
+
+
+
+library(wordcloud2)
+
+tb %>%
+  filter(class=='名詞') %>% 
+  select(term) %>% 
+  table() %>% 
+  wordcloud2()
+
+
+
+bigram=NgramDF(file,type=1,N=2,pos=c('名詞','動詞','形容詞'))
+
+library(igraph)
+
+bigram %>% 
+  filter(Ngram1 %in% c('大谷','夫','奥さん')) %>% 
+  graph.data.frame(directed=F) %>% 
+  plot(vertex.label=V(.)$name)
+
+
+
+
+
+
+library(topicmodels)
+
+ldamdl=LDA(bow,k=10)
+
+tpc=topics(ldamdl)
+
+library(tidytext)
+
+beta=tidy(ldamdl,matrix='beta')
+```
+
+
+
+#wakachi
+```{r}
+library(RMeCab)
+
+
+tx=read_csv('sampleText.txt',col_names=F)
+tx=read_csv('viyon.txt',col_names=F)
+
+head(tx,10)
+tail(tx,10)
+tx=tx[1]
+
+wakachi=tibble(nouns='')
+for(i in 1:(nrow(tx)-0)){
+  a=RMeCabC(tx[i,],dic='C:\\users\\s14422\\neologd.dic') %>% unlist()
+  #a=RMeCabC(tx[i,]) %>% unlist()
+  b=str_c(a[names(a)=='名詞'] %>% as.character(),collapse=' ')
+  wakachi=bind_rows(wakachi,c(nouns=b))
+}
+wakachi=wakachi[-1,]
+wakachi
+```
+
+
+
+#web scraping
+```{r}
+library(rvest)
+
+library(RSQLite)
+library(imager)
+
+if(file.exists('./rblog.rds')){
+  srp0=readRDS('./rblog.rds')
+}else{
+  srp0=tibble(title='',link='',abst='')
+}
+
+html1=read_html('https://www.r-bloggers.com/')
+Sys.sleep(1)
+nd11=html_nodes(html1,'.loop-title a')
+str_wrap(nd11)
+
+nd12=html_nodes(html1,'.mh-excerpt')
+str_wrap(nd12)
+
+srp1=tibble(title=html_text(nd11),
+           link=html_attr(nd11,'href'),
+           abst=html_text(nd12))
+
+srp0 %>% bind_rows(srp1) %>%
+  distinct(link,.keep_all=T) %>% 
+  saveRDS('./rblog.rds',compress=T)
+```
+
+
+```{r}
+if(file.exists('./nhknews.rds')){
+  srp0=readRDS('./nhknews.rds')
+}else{
+  srp0=tibble(title='',link='',file='')
+}
+
+html2=read_html('https://www3.nhk.or.jp/news/catnew.html')
+Sys.sleep(1)
+nd21=html_nodes(html2,'.thumb img')
+str_wrap(nd21)
+
+srp2=tibble(title=html_attr(nd21,'alt'),
+            link=str_c('https://www3.nhk.or.jp',
+                          html_attr(nd21,'data-src')))
+srp2$file='./nhk_img/' %+% str_sub(srp2$link,-20,-1)
+download.file(srp2$link,srp2$file,mode='wb')
+
+srp0 %>% bind_rows(srp2) %>%
+  distinct(file,.keep_all=T) %>% 
+  arrange(desc(file)) %>% 
+  saveRDS('./nhknews.rds',compress=T)
+```
+

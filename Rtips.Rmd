@@ -1,0 +1,1343 @@
+---
+title: "R tips"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    code_folding: hide 
+#date: "`r Sys.Date()`"
+---
+
+<style type="text/css">
+  body{
+  font-size: 12pt;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=T,warning=F,message=F,comment='')
+
+suppressWarnings(
+  suppressMessages(
+    suppressPackageStartupMessages({
+      library(stats)
+      library(MASS)
+      library(tidyverse)
+      library(magrittr)
+      
+      library(palmerpenguins)　#サンプルデータ用
+      
+      library(DT)　#テーブル表示ライブラリ
+      library(htmlTable) #テーブル表示ライブラリ
+      library(plotly)　#グラフ表示ライブラリ
+      library(DiagrammeR) #ダイアグラム表示ライブラリ
+    })
+  )
+)
+options(scipen=100,digits=3)
+```
+
+
+#column has vector
+```{r}
+v1=c(1,2,3)
+v2=c(10,20,30)
+v3=c(100,200,300)
+
+tb=tibble(x=c(list(v1),list(v2),list(v3)))
+tb
+tb$x
+tb$x[1]
+tb$x[[1]]
+tb$x[[1]][1]
+tb$x[2]
+tb$x[[2]]
+
+sum(tb$x[[1]])
+sum(tb$x[[2]])
+
+tb[[1]]
+tb[[1]][1]
+tb[[1]][[1]]
+tb[[1]][[1]][1]
+tb[[1]][2]
+tb[[1]][[2]]
+
+sum(tb[[1]][[1]])
+sum(tb[[1]][[2]])
+
+v4=c(0.1,0.2,0.3)
+tb=bind_rows(tb,tibble(x=list(v4)))
+tb
+tb$x
+tb$x[4]
+tb$x[[4]]
+
+tb[[1]]
+tb[[1]][4]
+tb[[1]][[4]]
+```
+
+
+#apply
+```{r}
+tb=penguins %>% select(is.numeric)
+
+apply(tb,1,sum,na.rm=T) %>% head()
+
+apply(tb,2,mean,na.rm=T)
+
+sapply(tb,mean,na.rm=T) #return vector
+
+lapply(tb,mean,na.rm=T) #retrun list
+
+apply(tb,2,range,na.rm=T)
+
+tb %>%
+  drop_na() %>% 
+  apply(2,function(x){
+  return (c(mean(x),median(x),names(which.max(table(x)))))
+})
+```
+
+
+
+#arrow, parquet, duckdb
+```{r}
+library(arrow)
+library(duckdb)
+```
+
+```{r}
+# ready csv file
+write_csv(penguins,'./table0.csv')
+
+# make parquet from csv via Robj
+csv0=read_csv('table0.csv')
+write_parquet(csv0,'table0.parquet')
+rm(csv0)
+
+# make tibble from parquet
+tb0=read_parquet('table0.parquet',as_data_frame=T)
+
+class(tb0)
+head(tb0)
+
+# make virtual arrow table from Robj
+
+atb0=arrow_table(tb0)
+collect(atb0)
+
+# make allow table from parquet
+
+atb0=read_parquet('table0.parquet',as_data_frame = F)
+
+class(atb)
+head(atb) %>% collect()
+
+
+# make tibble/arrow table has just selected column from parquet
+
+tb0=read_parquet('table0.parquet',c(species,island,sex),as_data_frame = T)
+atb0=read_parquet('table0.parquet',c(species,island,sex),as_data_frame = T)
+
+```
+
+```{r}
+# ready csv file
+write_csv(penguins,'./table0.csv')
+ 
+# make parquet from csv via Robj
+csv0=read_csv('table0.csv')
+write_parquet(csv0,'table0.parquet')
+rm(csv0)
+ 
+# make tibble from parquet
+tb0=read_parquet('table0.parquet',as_data_frame=T)
+ 
+class(tb0)
+head(tb0)
+ 
+# make virtual arrow table from Robj
+ 
+atb0=arrow_table(tb0)
+collect(atb0)
+ 
+# make allow table from parquet
+ 
+atb0=read_parquet('table0.parquet',as_data_frame = F)
+ 
+class(atb)
+head(atb) %>% collect()
+ 
+ 
+# make tibble/arrow table has just selected column from parquet
+ 
+tb0=read_parquet('table0.parquet',c(species,island,sex),as_data_frame = T)
+atb0=read_parquet('table0.parquet',c(species,island,sex),as_data_frame = T)
+ 
+```
+ 
+ 
+```{r}
+# make duckdb database in memory(temporary use)
+db=dbConnect(duckdb(),read_only=F)
+db=dbConnect(duckdb(),read_only=T)
+ 
+# connect or make duckdb database file(persistent)
+db=dbConnect(duckdb(),'./mydb.duck')
+ 
+# make table in duckdb from csv
+duckdb_read_csv(db,name='table0',files='table0.csv',header=T)
+ 
+# make virtual table in duckdb from tibble
+duckdb_register(db,'table0',tb)
+ 
+# make actual table in duckdb from tibble
+dbWriteTable(db,'table0',tb)
+ 
+# see tables in duckdb
+dbListTables(db)
+ 
+# see columns of table in duckdb
+dbListFields(db,'table0')
+ 
+# virtual tibble from table in ducktb
+vtb1=tbl(db,'table0')
+ 
+# virtual tibble directly from csv/R-obj, can be done by tidyverse
+vtb1=tbl(db,'./table0.csv')
+vtb1=tbl(db,penguins)
+ 
+# actual tibble in memory from virtual table
+tb1=collect(vtb1)
+ 
+ 
+# get table in duckdb as data.frame
+df1=dbReadTable(db,'table0')
+ 
+# by SQL, get table in duckdb as data.frame
+df1=dbGetQuery(db,'select * from table0')
+ 
+# by SQL, make table as data.frame directly from csv/R-obj
+df1=dbGetQuery(db,'select * from "./table0.csv"')
+ 
+ 
+# make table from R-obj
+dbWriteTable(db,'table0',penguins)
+ 
+ 
+# remove table from db, not for virtual table
+dbRemoveTable(db,'table0')
+ 
+# close db and make memory free
+dbDisconnect(db,shutdown=T)
+rm(db)
+gc()
+```
+ 
+ 
+```{r}
+# make in memory duckdb from tibble
+duck1=to_duckdb(tb1)
+ 
+# make arrow from in memory ducktb
+atb1=to_arrow(duck1)
+ 
+# make in memory table from tibble
+mtb1=InMemoryDataset$create(tb)
+ 
+# make arrow from in memory table
+atb1=to_arrow(mtb1)
+ 
+# make in memory duckdb from in memory table
+duck1=to_duckdb(mtb1)
+ 
+# actual tibble from in memory tibble
+tb1=collect(mtb1)
+tb1=collect(atb1)
+ 
+```
+ 
+### duckdb from sqlite3
+sqlite scanner
+ 
+
+
+
+#big data
+```{r}
+rm(list=ls())
+
+system.time({
+  x=rnorm(1e8,0,1) #make random number vector
+},T)
+
+system.time({
+  c=sample(c('a','b','c','d','e'),1e8,replace=T) #make random factor vector
+},T)
+
+
+s0=read_lines('./prophetFACEBOOK.txt',skip_empty_rows=T)
+s=s0 %>% str_split(' ') %>% unlist() %>% str_remove_all("'")
+
+system.time({
+  str=sample(s,1e8,replace=T) #make random string vector
+},T)
+
+system.time({
+  tb0=tibble(x1=rnorm(1e8,0,1),
+             x2=rnorm(1e8,0,1),
+             x3=rnorm(1e8,0,1),
+             c1=sample(c('a','b','c','d','e'),1e8,replace=T),
+             c2=sample(c('a','b','c','d','e'),1e8,replace=T),
+             c3=sample(c('a','b','c','d','e'),1e8,replace=T),
+             str=sample(s,1e8,replace=T))
+},T)
+
+
+write_csv(tb0,'big.csv') # 6.6GB
+system.time({
+  tb=read_csv('./big.csv')
+},T)
+
+system.time({
+  tb=fread('./big.csv') |> as_tibble()
+},T)
+
+write_rds(tb0,'big.rds') # 6.0GB
+system.time({
+  tb=read_rds('./big.rds')
+},T)
+
+write_parquet(tb0,'big.parquet') # 2.5GB
+system.time({
+  tb=read_parquet('./big.parquet',as_data_frame=T)
+},T)
+
+#1st
+system.time({
+  head(tb) %>% print()
+},T)
+
+#2nd
+system.time({
+  head(tb) %>% print()
+},T)
+
+system.time({
+  tb %>% group_by(c1) %>%
+    summarise(n(),mean(x1),sd(x1)) %>%
+    print()
+},T)
+
+system.time({
+  tb %>% mutate(xx=x1*x2*x3) %>% 
+    group_by(c1,c2,c3) %>%
+    summarise(n(),
+              mean(x1),sd(x1),
+              mean(x2),sd(x2),
+              mean(x3),sd(x3),
+              mean(xx),sd(xx)) %>% 
+    print()
+},T)
+
+system.time({
+  atb=read_parquet('./big.parquet',as_data_frame=F)
+},T)
+
+#1st
+system.time({
+  head(atb) %>% collect() %>% print()
+},T)
+
+#2nd
+system.time({
+  head(atb) %>% collect() %>% print()
+},T)
+
+system.time({
+  atb %>% group_by(c1) %>%
+    summarise(n(),mean(x1),sd(x1)) %>%
+    collect() %>%
+    print()
+},T)
+
+system.time({
+  atb %>% mutate(xx=x1*x2*x3) %>% 
+    group_by(c1,c2,c3) %>%
+    summarise(n(),
+              mean(x1),sd(x1),
+              mean(x2),sd(x2),
+              mean(x3),sd(x3),
+              mean(xx),sd(xx)) %>% 
+    collect() %>%
+    print()
+},T)
+
+
+system.time({
+  tb=read_parquet('./big.parquet',c(c1,x1),as_data_frame=T)
+},T)
+
+#1st
+system.time({
+  head(tb) %>% print()
+},T)
+
+#2nd
+system.time({
+  head(tb) %>% print()
+},T)
+
+system.time({
+  tb %>% group_by(c1) %>%
+    summarise(n(),mean(x1),sd(x1)) %>%
+    print()
+},T)
+
+
+system.time({
+  atb=read_parquet('./big.parquet',c(c1,x1),as_data_frame=F)
+},T)
+
+#1st
+system.time({
+  head(atb) %>% collect() %>% print()
+},T)
+
+#2nd
+system.time({
+  head(atb) %>% collect() %>% print()
+},T)
+
+system.time({
+  atb %>% group_by(c1) %>%
+    summarise(n(),mean(x1),sd(x1)) %>%
+    collect() %>%
+    print()
+},T)
+```
+
+
+```{r}
+rm(list=ls())
+
+system.time({
+  x=rnorm(1e8,0,1) #make random number vector
+},T)
+
+system.time({
+  c=sample(c('a','b','c','d','e'),1e8,replace=T) #make random factor vector
+},T)
+
+
+s0=read_lines('./prophetFACEBOOK.txt',skip_empty_rows=T)
+s=s0 %>% str_split(' ') %>% unlist()  %>% str_remove_all("'")
+
+system.time({
+  str=sample(s,1e8,replace=T) #make random string vector
+},T)
+
+system.time({
+  tb0=tibble(x1=rnorm(5e7,0,1),
+             x2=rnorm(5e7,0,1),
+             x3=rnorm(5e7,0,1),
+             c1=sample(c('a','b','c','d','e'),5e7,replace=T),
+             c2=sample(c('a','b','c','d','e'),5e7,replace=T),
+             c3=sample(c('a','b','c','d','e'),5e7,replace=T),
+             str=sample(s,5e7,replace=T),
+             x12=rnorm(5e7,0,1),
+             x22=rnorm(5e7,0,1),
+             x32=rnorm(5e7,0,1),
+             c12=sample(c('a','b','c','d','e'),5e7,replace=T),
+             c22=sample(c('a','b','c','d','e'),5e7,replace=T),
+             c32=sample(c('a','b','c','d','e'),5e7,replace=T),
+             str2=sample(s,5e7,replace=T))
+},T)
+
+
+write_csv(tb0,'big.csv')
+system.time({
+  tb=read_csv('./big.csv')
+},T)
+
+write_rds(tb0,'big.rds')
+system.time({
+  tb=read_rds('./big.rds')
+},T)
+
+write_parquet(tb0,'big.parquet')
+system.time({
+  tb=read_parquet('./big.parquet',as_data_frame=T)
+},T)
+
+#1st
+system.time({
+  head(tb) %>% print()
+},T)
+
+#2nd
+system.time({
+  head(tb) %>% print()
+},T)
+
+system.time({
+  tb %>% group_by(c1) %>%
+    summarise(n(),mean(x1),sd(x1)) %>%
+    print()
+},T)
+
+system.time({
+  tb %>% mutate(xx=x1*x2*x3) %>% 
+    group_by(c1,c2,c3) %>%
+    summarise(n(),
+              mean(x1),sd(x1),
+              mean(x2),sd(x2),
+              mean(x3),sd(x3),
+              mean(xx),sd(xx)) %>% 
+    print()
+},T)
+
+system.time({
+  atb=read_parquet('./big.parquet',as_data_frame=F)
+},T)
+
+#1st
+system.time({
+  head(atb) %>% collect() %>% print()
+},T)
+
+#2nd
+system.time({
+  head(atb) %>% collect() %>% print()
+},T)
+
+system.time({
+  atb %>% group_by(c1) %>%
+    summarise(n(),mean(x1),sd(x1)) %>%
+    collect() %>%
+    print()
+},T)
+
+system.time({
+  atb %>% mutate(xx=x1*x2*x3) %>% 
+    group_by(c1,c2,c3) %>%
+    summarise(n(),
+              mean(x1),sd(x1),
+              mean(x2),sd(x2),
+              mean(x3),sd(x3),
+              mean(xx),sd(xx)) %>% 
+    collect() %>%
+    print()
+},T)
+
+
+system.time({
+  tb=read_parquet('./big.parquet',c(c1,x1),as_data_frame=T)
+},T)
+
+#1st
+system.time({
+  head(tb) %>% print()
+},T)
+
+#2nd
+system.time({
+  head(tb) %>% print()
+},T)
+
+system.time({
+  tb %>% group_by(c1) %>%
+    summarise(n(),mean(x1),sd(x1)) %>%
+    print()
+},T)
+
+
+system.time({
+  atb=read_parquet('./big.parquet',c(c1,x1),as_data_frame=F)
+},T)
+
+#1st
+system.time({
+  head(atb) %>% collect() %>% print()
+},T)
+
+#2nd
+system.time({
+  head(atb) %>% collect() %>% print()
+},T)
+
+system.time({
+  atb %>% group_by(c1) %>%
+    summarise(n(),mean(x1),sd(x1)) %>%
+    collect() %>%
+    print()
+},T)
+```
+
+```{r}
+if(F){
+  
+rm(list=ls())
+
+#make duckdb database from csv
+
+db=dbConnect(duckdb(),'./db1.duck')
+system.time({
+duckdb_read_csv(db,name='table0',files='big.csv',header=T)
+},T)
+dbDisconnect(db)
+rm(db)
+
+db=dbConnect(duckdb(),'./db2.duck')
+system.time({
+duckdb_read_csv(db,name='table0',files='big2.csv',header=T)
+},T)
+dbDisconnect(db)
+rm(db)
+
+db=dbConnect(duckdb(),'./db4.duck')
+system.time({
+duckdb_read_csv(db,name='table0',files='big4.csv',header=T)
+},T)
+dbDisconnect(db)
+rm(db)
+
+}
+```
+
+csv(1e8 rows) 6.6GB -> duckdb 2.6GB
+
+   ユーザ   システム       経過  
+      86.9        5.2       35.8 
+
+csv(2e8 rows) 13.2GB -> duckdb 5.2GB
+
+   ユーザ   システム       経過  
+       157         12         85 
+
+csv(4e8 rows) 26.4GB -> duckdb 10.4GB
+
+   ユーザ   システム       経過  
+       193         14        238 
+
+```{r}
+db=dbConnect(duckdb(),'./db1.duck')
+vtb=tbl(db,'table0')
+
+system.time({
+  head(vtb) %>% print()
+},T)
+
+system.time({
+  vtb %>% group_by(c1) %>%
+    summarise(n(),mean(x1),sd(x1)) %>%
+    print()
+},T)
+
+system.time({
+  vtb %>% mutate(xx=x1*x2*x3) %>% 
+    group_by(c1,c2,c3) %>%
+    summarise(n(),
+              mean(x1),sd(x1),
+              mean(x2),sd(x2),
+              mean(x3),sd(x3),
+              mean(xx),sd(xx)) %>% 
+    print()
+},T)
+
+dbDisconnect(db)
+rm(db)
+
+
+db=dbConnect(duckdb(),'./db2.duck')
+vtb=tbl(db,'table0')
+
+system.time({
+  head(vtb) %>% print()
+},T)
+
+system.time({
+  vtb %>% group_by(c1) %>%
+    summarise(n(),mean(x1),sd(x1)) %>%
+    print()
+},T)
+
+system.time({
+  vtb %>% mutate(xx=x1*x2*x3) %>% 
+    group_by(c1,c2,c3) %>%
+    summarise(n(),
+              mean(x1),sd(x1),
+              mean(x2),sd(x2),
+              mean(x3),sd(x3),
+              mean(xx),sd(xx)) %>% 
+    print()
+},T)
+
+dbDisconnect(db)
+rm(db)
+
+
+db=dbConnect(duckdb(),'./db4.duck')
+vtb=tbl(db,'table0')
+
+system.time({
+  head(vtb) %>% print()
+},T)
+
+system.time({
+  vtb %>% group_by(c1) %>%
+    summarise(n(),mean(x1),sd(x1)) %>%
+    print()
+},T)
+
+system.time({
+  vtb %>% mutate(xx=x1*x2*x3) %>% 
+    group_by(c1,c2,c3) %>%
+    summarise(n(),
+              mean(x1),sd(x1),
+              mean(x2),sd(x2),
+              mean(x3),sd(x3),
+              mean(xx),sd(xx)) %>% 
+    print()
+},T)
+
+dbDisconnect(db)
+rm(db)
+```
+
+
+
+#file from web
+```{r}
+# download file(parquet) from web to current directry
+
+curl_download(
+  "http://github.com/cwida/duckdb-data/releases/download/v1.0/lineitemsf1.snappy.parquet",
+  "lineitems.parquet"
+)
+```
+
+
+
+#get request
+```{r}
+library(httr)
+library(jsonlite)
+```
+```{r}
+GET('https://geoapi.heartrails.com/api/json?method=getPrefectures')
+
+arg0=list(method='getPrefectures')
+GET('https://geoapi.heartrails.com/api/json', query=arg0)
+
+fromJSON('https://geoapi.heartrails.com/api/json?method=getPrefectures')
+```
+```{r}
+GET('https://geoapi.heartrails.com/api/json?method=getCities&prefecture=北海道')
+
+arg0=list(method='getCities',
+          prefecture='北海道')
+GET('https://geoapi.heartrails.com/api/json', query=arg0)
+
+fromJSON('https://geoapi.heartrails.com/api/json?method=getCities&prefecture=北海道')
+```
+```{r}
+GET('https://geoapi.heartrails.com/api/json?method=getTowns&prefecture=北海道&city=札幌市')
+
+fromJSON('https://geoapi.heartrails.com/api/json?method=getTowns&prefecture=北海道&city=札幌市')
+```
+https://www.post.japanpost.jp/zipcode/dl/utf-zip.html
+```{r}
+download.file('https://www.post.japanpost.jp/zipcode/dl/utf/zip/utf_ken_all.zip','utf_ken_all.zip')
+unzip('utf_ken_all.zip',list=T)
+unzip('utf_ken_all.zip')
+read_csv('utf_ken_all.csv')
+```
+```{r}
+GET('https://geoapi.heartrails.com/api/json?method=searchByPostal&postal=0600001')
+
+fromJSON('https://geoapi.heartrails.com/api/json?method=searchByPostal&postal=0600001') |> str()
+```
+
+
+
+#json
+```{r}
+# install.packages('jsonlite')
+library(jsonlite)
+
+tb=penguins
+#tb=read_csv('test_json.csv')
+
+json1=toJSON(tb)
+str(json1)
+
+tb1=fromJSON(json1)
+str(tb1)
+
+
+write_json(tb,'test_json.json')
+write_json(tb,'test_json_pretty.json', pretty=T)
+
+
+json2=fromJSON('test_json.json')
+str(json2)
+
+write_csv(json2,'test_json.csv')
+
+json3=read_json('test_json.json')
+str(json3)
+
+
+
+
+read_file('https://jsonplaceholder.typicode.com/users')
+
+read_lines('https://jsonplaceholder.typicode.com/users')
+
+read_json('https://jsonplaceholder.typicode.com/users')
+
+read_json('https://jsonplaceholder.typicode.com/users', simplifyVector=T)
+
+fromJSON('https://jsonplaceholder.typicode.com/users')
+
+
+
+
+json=fromJSON("http://radioactivity.nsr.go.jp/data/ja/real/area_24000/2401_trend.json")
+
+as_tibble(json) %>%
+  glimpse()
+
+as_tibble(json) %>%
+  select(where(is.list)) %>%
+  glimpse()
+
+
+
+
+
+
+library(tidyjson)
+
+json=c('{"age": 32, "name": {"first": "Bob",   "last": "Smith"}}',
+       '{"age": 54, "name": {"first": "Susan", "last": "Doe"}}',
+       '{"age": 18, "name": {"first": "Ann",   "last": "Jones"}}')
+
+
+json %>%
+  spread_all() %>% # for character vector
+  as_tibble() %>% 
+  select(-1)
+
+
+json=read_json("http://radioactivity.nsr.go.jp/data/ja/real/area_24000/2401_trend.json")
+
+as_tibble(json) %>% 
+  glimpse()
+
+
+
+
+
+
+GET('https://geoapi.heartrails.com/api/json?method=getPrefectures')
+
+arg0=list(method='getPrefectures')
+GET('https://geoapi.heartrails.com/api/json', query=arg0)
+
+fromJSON('https://geoapi.heartrails.com/api/json?method=getPrefectures')
+
+
+
+
+GET('https://geoapi.heartrails.com/api/json?method=getCities&prefecture=北海道')
+
+arg0=list(method='getCities',
+          prefecture='北海道')
+GET('https://geoapi.heartrails.com/api/json', query=arg0)
+
+fromJSON('https://geoapi.heartrails.com/api/json?method=getCities&prefecture=北海道')
+
+
+
+
+GET('https://geoapi.heartrails.com/api/json?method=getTowns&prefecture=北海道&city=札幌市')
+
+fromJSON('https://geoapi.heartrails.com/api/json?method=getTowns&prefecture=北海道&city=札幌市')
+
+
+
+
+#https://www.post.japanpost.jp/zipcode/dl/utf-zip.html
+
+download.file('https://www.post.japanpost.jp/zipcode/dl/utf/zip/utf_ken_all.zip','utf_ken_all.zip')
+unzip('utf_ken_all.zip',list=T)
+unzip('utf_ken_all.zip')
+read_csv('utf_ken_all.csv')
+```
+```
+{
+    "glossary": {
+        "title": "example glossary",
+		"GlossDiv": {
+            "title": "S",
+			"GlossList": {
+                "GlossEntry": {
+                    "ID": "SGML",
+					"SortAs": "SGML",
+					"GlossTerm": "Standard Generalized Markup Language",
+					"Acronym": "SGML",
+					"Abbrev": "ISO 8879:1986",
+					"GlossDef": {
+                        "para": "A meta-markup language, used to create markup languages such as DocBook.",
+						"GlossSeeAlso": ["GML", "XML"]
+                    },
+					"GlossSee": "markup"
+                }
+            }
+        }
+    }
+}
+```
+
+
+
+#mathjax
+
+\[
+a + b = c + d \tag{1,1}
+\]
+\[
+a + b = c + d \tag{1,2}
+\]
+\[
+a + b = c + d \tag{1,3}
+\]
+
+
+
+\begin{equation}
+\sum_{k=1}^nk=\frac{1}{2}n(n+1)
+\end{equation}
+\begin{equation}
+\int_0^\infty e^{-ax^2}dx=\frac{1}{2}\sqrt{\frac{\pi}{a}}
+\end{equation}
+
+
+\begin{eqnarray}E & = & mc^2 \tag{a}\label{eq1}\end{eqnarray}
+
+\eqref{eq1}
+
+
+inline \( --- \)
+\(E=mc^2\)
+\(f(x) = \int_{-\infty}^{\infty} e^{-x^2} \,dx\)
+
+$f(x)= a x + b$
+
+block
+\[ --- \]
+
+\[x^{2}+y^{2}=1\]
+\[\sum_{i}^{n} \left( x_{i}-\overline{x}\right) ^{2}\]
+\[  i\hbar\frac{\partial}{\partial t}\psi(x,t)=
+  \left(-\frac{\hbar^2}{2m}+V(x)\right)\psi(x,t)\]
+  
+
+$$
+\mathop{\rm argmax}\limits_{\boldsymbol{\phi}}
+$$
+
+
+
+#lmer
+```{r}
+library(lme4)
+ 
+qplot(bill_length_mm,bill_depth_mm,col=species,data=penguins)
+qplot(bill_length_mm,bill_depth_mm,col=sex,data=penguins)
+ 
+mdl0=lm(bill_length_mm~bill_depth_mm, data=penguins)
+ 
+mdl1=lmer(bill_length_mm~(1|species)+bill_depth_mm, data=penguins)
+mdl2=lmer(bill_length_mm~(bill_depth_mm|species), data=penguins)
+mdl3=lmer(bill_length_mm~(1|species)+(bill_depth_mm|species), data=penguins)
+mdl4=lmer(bill_length_mm~(1|species)+(bill_depth_mm|sex), data=penguins)
+mdl5=lmer(bill_length_mm~(1|species)+bill_depth_mm+(bill_depth_mm|species/sex), data=penguins)
+ 
+ 
+summary(mdl0)
+coef(mdl0)
+anova(mdl0)
+plot(mdl0)
+ 
+ 
+fn=function(mdl){
+  print(mdl)
+  cat('\n')
+  fixef(mdl) |> print()
+  cat('\n')
+  ranef(mdl) |> print()
+  cat('\n')
+  anova(mdl) |> print()
+}
+ 
+fn(mdl1)
+plot(mdl1)
+fn(mdl2)
+plot(mdl2)
+fn(mdl3)
+plot(mdl3)
+fn(mdl4)
+plot(mdl4)
+fn(mdl5)
+plot(mdl5)
+ 
+ 
+ 
+#devtools::install_github("dustinfife/flexplot")
+library(flexplot)
+ 
+model.comparison(mdl1,mdl2) #AIC,BIC,bayes factor
+ 
+ 
+flexplot(bill_length_mm~1,data=penguins)
+flexplot(species~1,data=penguins)
+ 
+ 
+flexplot(bill_length_mm~bill_depth_mm,data=penguins,method="lm",se=T)
+flexplot(bill_length_mm~bill_depth_mm,data=penguins,method='polynomial')
+ 
+flexplot(bill_length_mm~species,data=penguins)
+ 
+ 
+ 
+flexplot(bill_length_mm~bill_depth_mm+species,data=penguins,method="lm",se=T)
+ 
+flexplot(bill_length_mm~bill_depth_mm+sex,data=penguins,method="lm",se=T)
+ 
+ 
+flexplot(bill_length_mm~bill_depth_mm|species,data=penguins,method="lm",se=T)
+ 
+flexplot(bill_length_mm~bill_depth_mm|sex,data=penguins,method="lm",se=T)
+ 
+flexplot(bill_length_mm~bill_depth_mm|species+sex,data=penguins,method="lm",se=T)
+```
+
+
+#sanky diagram
+```{r}
+c=letters[1:3]
+tb=as_tibble(expand.grid(c,c,c))
+
+library(ggalluvial)
+
+tb=tibble(
+  stage1 = tb$Var1,
+  stage2 = tb$Var2,
+  stage3 = tb$Var3,
+  value = sample(1:3,27,replace=T)
+)
+
+
+ggplot(tb,
+       aes(axis1 = stage1, axis2 = stage2, axis3 = stage3, y = value)) +
+  geom_alluvium(aes(fill = stage2)) +
+  geom_stratum() +
+  geom_text(stat = "stratum", aes(label = after_stat(stratum))) +
+  scale_x_discrete(limits = c("Stage 1", "Stage 2", "Stage 3")) +
+  theme_minimal()
+
+
+
+ggplot(select(tb,-stage3),
+       aes(axis1 = stage1, axis2 = stage2, y = value)) +
+  geom_alluvium(aes(fill = stage1)) +
+  geom_stratum() +
+  geom_text(stat = "stratum", aes(label = after_stat(stratum))) +
+  scale_x_discrete(limits = c("Stage 1", "Stage 2")) +
+  theme_minimal()
+
+
+ggplot(select(tb,-stage1),
+       aes(axis1 = stage2, axis2 = stage3, y = value)) +
+  geom_alluvium(aes(fill = stage2)) +
+  geom_stratum() +
+  geom_text(stat = "stratum", aes(label = after_stat(stratum))) +
+  scale_x_discrete(limits = c("Stage 2", "Stage 3")) +
+  theme_minimal()
+```
+
+
+
+#path diagram
+
+Path diagram describe variables relation, linear and normal stochastic model\
+
+normal random has mean x0
+```{r}
+grViz("digraph{
+  graph[label='x=x0+e, e~N(0,s)',labelloc=t,
+  layout=dot,rankdir=LR,nodesep=0.5,ranksep=1]
+
+  node [shape=rectangle]
+  x [label='x']
+  e [label='e',shape=circle]
+  
+  edge[]
+  e->x
+}")
+```
+
+
+confounding
+```{r}
+grViz("digraph{
+  graph[label='confounding\n\n  ',labelloc=t,
+  layout=dot,rankdir=TB,nodesep=0.5,ranksep=1]
+
+  node [shape=rectangle]
+  edge[len=2]
+  
+  x1 [label='x']
+  y1 [label='y']
+  z1 [label='z',shape=ellipse]
+  e11 [label='e',shape=circle]
+  x1->y1
+  z1->y1
+  e11->y1 [len=1]
+
+  x2 [label='x']
+  y2 [label='y']
+  z2 [label='z',shape=ellipse]
+  e21 [label='e']
+  e22 [label='e']
+  z2->x2
+  z2->y2
+  e21->x2 [len=1]
+  e22->y2 [len=1]
+
+  x3 [label='x']
+  y3 [label='y']
+  z3 [label='z',shape=ellipse]
+  e31 [label='e']
+  e32 [label='e']
+  x3->y3
+  z3->x3
+  z3->y3
+  e31->x3 [len=1]
+  e32->y3 [len=1]
+}")
+```
+
+
+serial contribution
+```{r}
+grViz("digraph{
+  graph[label='serial\n x2=x1+e1, y=x2+e2, e~N(0,s)\n b=b1*b2',labelloc=t,
+  layout=dot,rankdir=LR,nodesep=0.5,ranksep=1]
+
+  node [shape=rectangle]
+  x1 [label='x1']
+  e1 [label='e1',shape=circle]
+  x2 [lebel='x2']
+  e2 [label='e2',shape=circle]
+  y [label='y']
+
+  edge [len=2]
+  x1->x2 [label='b1']
+  e1->x2 [len=1]
+  x2->y [label='b2']
+  e2->y [len=1]
+}")
+```
+
+
+parallel contribution
+```{r}
+grViz("digraph{
+  graph[label='parallel\n y=x1+x2+e2, e~N(0,s)\n b=b1+b2',labelloc=t,
+  layout=dot,rankdir=LR,nodesep=0.5,ranksep=1]
+
+  node [shape=rectangle]
+  x1 [label='x1']
+  x2 [lebel='x2']
+  e1 [label='e',shape=circle]
+  y [label='y']
+
+  edge [len=2]
+  x1->y [label='b1']
+  x2->y [label='b2']
+  e1->y [len=1]
+}")
+```
+
+
+single regression
+```{r}
+grViz("digraph{
+  graph[label='single regression\n y=b0+b1*x+e, e~N(0,s)',labelloc=t,
+  layout=dot,rankdir=LR,nodesep=0.5,ranksep=1]
+
+  node [shape=rectangle]
+  b0 [label='1',shape=circle]
+  x1 [label='x']
+  e1 [label='e',shape=circle]
+  y [label='y']
+
+  edge [len=2]
+  b0->y [label='b0']
+  x1->y [label='b1']
+  e1->y [len=1]
+}")
+```
+
+
+multi regression
+```{r}
+grViz("digraph{
+  graph[label='multi regression\n y=b0+b1*x1+b1*x2+e, e~N(0,s)',labelloc=t,
+  layout=dot,rankdir=LR,nodesep=0.5,ranksep=1]
+
+  node [shape=rectangle]
+  b0 [label='1',shape=circle]
+  x1 [label='x1']
+  x2 [label='x2']
+  e1 [label='e',shape=circle]
+  y [label='y']
+
+  edge [len=2]
+  b0->y [label='b0']
+  x1->y [label='b1']
+  x2->y [label='b2']
+  e1->y [len=1]
+}")
+```
+
+
+oneway ANOVA
+```{r}
+grViz("digraph{
+  graph[label='one way ANOVA\n x=x0+(r01...r0K)+e, e~N(0,s)',labelloc=t,
+  layout=dot,rankdir=LR,nodesep=0.5,ranksep=1]
+
+  node [shape=rectangle]
+  x [label='x']
+  r0 [label='1',shape=circle]
+  e [label='e',shape=circle]
+  
+  edge[]
+  r0->x [label='r01...r0K']
+  e->x
+}")
+```
+
+
+mixed effect model
+```{r}
+grViz("digraph{
+  graph[label=' K class mixed effect model\n y=b0+(r01...r0K)+(b1+(r11...r1K))*x+e, e~N(0,s)',labelloc=t,
+  layout=dot,rankdir=LR,nodesep=0.5,ranksep=1]
+
+  node [shape=rectangle]
+  r0 [label='1',shape=circle]
+  x [label='x']
+  y [label='y']
+  e [label='e',shape=circle]
+  
+  edge[len=2]
+  x->y [label='b1\n r11...r1K~N(0,sr1)']
+  r0->y [label='b0\n r01...r0K~N(0,sr0)']
+  e->y [len=1]
+}")
+```
+
+
+PCA
+```{r}
+grViz("digraph{
+  graph[label='prncipal component analysis\n x~pc1+pc2+...+e, e~N(0,s)',labelloc=t,
+  layout=dot,rankdir=LR,nodesep=0.5,ranksep=1]
+
+  node [shape=rectangle]
+  x1 [label='x1']
+  x2 [label='x2']
+  x3 [label='x3']
+  p1 [label='pc1',shape=ellipse]
+  p2 [label='pc2',shape=ellipse]
+  e1 [label='e',shape=circle]
+  e2 [label='e',shape=circle]
+  e3 [label='e',shape=circle]
+
+  edge [len=2]
+  p1->x1
+  p2->x1
+  e1->x1 [len=1]
+  p1->x2
+  p2->x2
+  e2->x2 [len=1]
+  p1->x3
+  p2->x3
+  e3->x3 [len=1]
+}")
+```
+
+
+factor analysis
+```{r}
+grViz("digraph{
+  graph[label='factor analysis\n x~f1+f2+...+d',labelloc=t,
+  layout=dot,rankdir=LR,nodesep=0.5,ranksep=1]
+
+  node [shape=rectangle]
+  x1 [label='x1']
+  x2 [label='x2']
+  x3 [label='x3']
+  f1 [label='f1',shape=ellipse]
+  f2 [label='f2',shape=ellipse]
+  d1 [label='d1',shape=ellipse]
+  d2 [label='d2',shape=ellipse]
+  d3 [label='d3',shape=ellipse]
+
+  edge [len=2]
+  f1->x1
+  f2->x1
+  d1->x1
+  f1->x2
+  f2->x2
+  d2->x2
+  f1->x3
+  f2->x3
+  d3->x3
+}")
+```
+
+
+
+#text process
+```{r}
+#download text form web
+
+download.file('https://---/---.txt,textfile='---.txt')
+
+a0=read_lines('./prophetFACEBOOK.txt',skip_empty_rows=T)
+a=a0 %>%
+  # str_remove_all('[,!"\\.\\?]') %>%
+  str_split(' ') ## list of each paragraph words
+
+v=tibble(word=a[[1]]) #words of paragraph 1
+v=v[v!=''] #reject blank
+
+v=unlist(a) %>% tibble() #words of all
+v=v[v!='']
+
+```
+
+
+
+#
+
