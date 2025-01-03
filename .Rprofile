@@ -20,8 +20,8 @@ qtile=function(x) {
 
 
 #mode
-mode=function(x) {
-  as.numeric(names(which.max(table(x))))
+mode=function(x,a=0) {
+  as.numeric(names(which.max(table(round(x,a)))))
 }
 
 
