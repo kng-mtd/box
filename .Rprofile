@@ -15,7 +15,7 @@ library(palmerpenguins)
 
 #quartiles
 qtile=function(x) {
-  quantile(x,probs=c(0.0,0.025,0.05,0.25,0.5,0.75,0.95,0.975,1))
+  quantile(x,probs=c(0.0,0.025,0.05,0.25,0.5,0.75,0.95,0.975,1),na.rm=T)
 }
 
 
