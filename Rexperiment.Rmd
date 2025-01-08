@@ -667,25 +667,6 @@ rgamma(100,shape=m[3]**2/v[3],rate=m[3]/v[3]) %>% hist()
 
 
 
-#mecab
-```{r}
-library(RMeCab)
-
-tx=read_csv('sampleText.txt',col_names=F)
-
-wakachi=tibble(nouns='')
-for(i in 1:nrow(tx)){
-  a=RMeCabC(tx[i,]) %>% unlist()
-  
-  
-  b=str_c(a[names(a)=='名詞'] %>% as.character(),collapse=' ')
-  wakachi=bind_rows(wakachi,c(nouns=b))
-}
-wakachi=wakachi[-1,]
-wakachi
-```
-
-
 
 #optimize matrix
 ```{r}
@@ -826,14 +807,35 @@ rsvd(ms,2)
 
 
 #text mining
+
+
 ```{r}
 source("http://rmecab.jp/R/Aozora.R")
 file=Aozora("https://www.aozora.gr.jp/cards/000035/files/2253_ruby_1031.zip")
 tx=read.table(file,header=F,fileEncoding = "UTF-8")
 
 
+#mecab
+
 install.packages("RMeCab", repos = "http://rmecab.jp/R")
 library(RMeCab)
+
+```{r}
+library(RMeCab)
+
+tx=read_csv('sampleText.txt',col_names=F)
+
+wakachi=tibble(nouns='')
+for(i in 1:nrow(tx)){
+  a=RMeCabC(tx[i,]) %>% unlist()
+  
+  
+  b=str_c(a[names(a)=='名詞'] %>% as.character(),collapse=' ')
+  wakachi=bind_rows(wakachi,c(nouns=b))
+}
+wakachi=wakachi[-1,]
+wakachi
+```
 
 
 rst=RMeCabText('viyon.txt')
