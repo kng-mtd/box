@@ -103,6 +103,33 @@ tb %>%
 
 
 
+#multi axis graph
+```{r}
+par(mar=c(3,5,3,5))
+x=1:10
+y1=rnorm(10,5,1)  # left y1
+y2=runif(10,50,100) # right y2
+
+# left line chart
+plot(x, y1, type='h', col='gray', lwd=20, ylim=c(0, 10),
+     xlab='x', ylab='y1', main='multi y axis graph')
+
+# overlap graph
+par(new=T)
+
+# roght bar chart
+plot(x, y2, type='l', col='red', lwd=3, ylim=c(50, 100),
+     axes=F, xlab = '', ylab = '')
+# add right axis
+axis(4, at=seq(50, 100, by=10))
+mtext('y2', side=4, line=3)
+
+legend('topleft', legend=c('y1', 'y2'),
+       col=c('gray', 'red'), lty=c(NA,1), pch=c(15,NA), lwd=3)
+```
+
+
+
 #arrow, parquet, duckdb
 ```{r}
 library(arrow)
