@@ -277,6 +277,18 @@ legend('topleft', legend=c('y1', 'y2'),
 
 
 
+#multi line graph
+```{r}
+p=3
+m=tibble(y1=runif(10,0,10),y2=runif(10,0,10),y3=runif(10,0,10)) |> as.matrix()
+matplot(m,pch=1:p,type='o',lwd=2,col=2:(p+1),bg=2:(p+1),main='multi line graph',xlab='time',ylab='y')
+
+legend('bottomright',xpd=T,inset=c(0,-0.4),legend=c('y1','y2','y3'),
+       col=2:(p+1), lty=1:p, pch=1:p, lwd=2)
+```
+
+
+
 #arrow, parquet, duckdb
 ```{r}
 library(arrow)
