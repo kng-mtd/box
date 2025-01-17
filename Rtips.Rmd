@@ -250,6 +250,33 @@ stat_mode(x=num_vec, ties="last")
 
 
 
+#multi histgram, density
+```{r}
+a=rpois(100,10)
+b=rpois(100,5)
+
+xm=max(a,b)
+ym=max(table(a),table(b))
+hist(a,breaks=10,col=rgb(1,0,0,0.5),
+     xlim=c(0,xm),ylim=c(0,ym),
+     main='histgram',xlab='')
+hist(b,breaks=10,col=rgb(0,0,1,0.5),add=T)
+
+legend("topright",legend=c('a','b'),
+       fill=c(rgb(1,0,0,0.5),rgb(0,0,1,0.5)))
+
+
+xm=max(a,b)
+ym=max(density(a)$y,density(b)$y)
+density(a) |> plot(col='red',main='density',xlab='',
+                   xlim=c(0,xm),ylim=c(0,ym))
+par(new=T)
+density(b) |> plot(col='blue',main='',xlab='',
+                   xlim=c(0,xm),ylim=c(0,ym))
+```
+
+
+
 #multi axis graph
 ```{r}
 par(mar=c(3,5,3,5))
