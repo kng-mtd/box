@@ -1578,3 +1578,30 @@ l%*%u
 
 
 
+##Cholesky decompoaition
+```{r}
+x=matrix(c(1,1,1,1, 2,3,5,7, 3,5,7,11),ncol=3)
+a=t(x)%*%x
+
+t(chol(a))
+
+d=ncol(a)
+l=diag(0,d)
+
+l[1,1]=sqrt(a[1,1])
+for(i in 2:d){
+  print(l)
+  for(j in 1:(i-1)){
+    b=a[i,j]
+    for(k in 1:(i-1)) b=b-l[i,k]*l[j,k]
+    l[i,j]=b/l[j,j]
+  }
+  b=a[i,i]
+  for(k in 1:i) b=b-l[i,k]^2
+  l[i,i]=sqrt(b)
+}
+
+l
+l%*%t(l)
+```
+
