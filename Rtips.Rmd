@@ -1552,5 +1552,29 @@ v=v[v!='']
 
 
 
-#
+#LU decomposition
+```{r}
+a=matrix(c(2,3,5, 5,7,11, 7,11,13),ncol=3)
+a
+
+d=ncol(a)
+l=diag(1,d)
+u=a
+
+for(k in 1:(d-1)){
+  for(i in (k+1):d){
+    l[i,k]=u[i,k]/u[k,k]
+    for(j in 1:d){
+      if(j<=k){u[i,j]=0}
+      else(u[i,j]=u[i,j]-l[i,k]*u[k,j])
+    }
+  }
+}
+
+l
+u
+l%*%u
+```
+
+
 
