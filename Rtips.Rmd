@@ -1582,15 +1582,14 @@ l%*%u
 ```{r}
 x=matrix(c(1,1,1,1, 2,3,5,7, 3,5,7,11),ncol=3)
 a=t(x)%*%x
+d=ncol(a)
+a
 
 t(chol(a))
 
-d=ncol(a)
 l=diag(0,d)
-
 l[1,1]=sqrt(a[1,1])
 for(i in 2:d){
-  print(l)
   for(j in 1:(i-1)){
     b=a[i,j]
     for(k in 1:(i-1)) b=b-l[i,k]*l[j,k]
@@ -1603,5 +1602,25 @@ for(i in 2:d){
 
 l
 l%*%t(l)
+
+
+solve(l)
+
+b=diag(0,d)
+for(i in 1:d) b[i,i]=1/l[i,i]
+for(i in 2:d){
+  for(j in 1:(i-1)){
+    for(k in j:(i-1)) b[i,j]=b[i,j]-l[i,k]*b[k,j]
+  b[i,j]=b[i,j]/l[i,i]
+  }
+}
+
+b
+l%*%b
+
+
+solve(a)
+
+t(b)%*%b
 ```
 
