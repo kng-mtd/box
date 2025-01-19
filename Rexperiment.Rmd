@@ -68,7 +68,11 @@ l%*%u
 
 #Cholesky decompoaition
 ```{r}
-x=matrix(c(1,1,1,1, 2,3,5,7, 3,5,7,11),ncol=3)
+tb=tibble(x0=c(1,1,1,1),x1=c(2,3,5,7),x2=c(3,5,7,11),
+          y=c(5,7,11,13))
+x=as.matrix(tb[1:3])
+y=tb$y
+
 a=t(x)%*%x
 d=ncol(a)
 a
@@ -110,6 +114,11 @@ l%*%b
 solve(a)
 
 t(b)%*%b
+
+
+lm(y~x1+x2,tb)
+
+t(b)%*%b%*%t(x)%*%y
 ```
 
 
