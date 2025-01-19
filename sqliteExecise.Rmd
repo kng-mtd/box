@@ -1,0 +1,680 @@
+---
+title: "SQLite exercise"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    code_folding: show 
+---
+
+```{r setup, include=FALSE}
+library(DBI)
+library(RSQLite)
+library(tidyverse)
+library(palmerpenguins)
+
+
+con=dbConnect(SQLite(), ":memory:")
+# or
+#con=dbConnect(SQLite(), "database.sqlite")
+
+knitr::opts_chunk$set(echo=T,warning=F,message=F,comment='',
+                      connection = "con")
+```
+
+## R process to SQLite
+```{r}
+tb=tibble(
+  col1=c('a','b','c','d'),col2=c(1,2,3,4),col3=c(10,20,30,40)
+)
+dbWriteTable(con,'table0',tb)
+dbReadTable(con,'table0')
+```
+
+```{r}
+dbWriteTable(con,'table0',tb,append=T,row.names=F)
+dbReadTable(con,'table0')
+dbRemoveTable(con,'table0')
+```
+
+```{r}
+dbWriteTable(con,'penguin',penguins)
+dbGetQuery(con,'select * from penguin limit 5;')
+```
+
+```{sql}
+select * from penguin limit 5;
+```
+
+```{sql}
+drop table penguin;
+```
+
+
+## R create SQLite table
+```{r}
+dbExecute(con,
+          "create table table1 (chr1 text, chr2 text, num1 int, num2 int, num3 real, day text)")
+
+dbExecute(con,
+          "insert into table1 (chr1, chr2, num1, num2, num3, day) values 
+          ('a','c1',1,10,0.5,'2000-01-01'),
+          ('b','c1',2,20,0.33,'2000-02-01'),
+          ('c','c2',3,30,0.25,'2000-03-01')")
+```
+```{sql}
+select * from table1;
+```
+```{sql}
+drop table table1;
+```
+
+## create table by vanilla SQLite
+### master table: table0
+```{sql}
+create table table0 (chr1 text, num1 int, num2 real);
+```
+```{sql}
+insert into table0 (chr1, num1, num2) values
+  ('a',100,1.0), ('b',200,0.5), ('c',300,0.33), ('d',400,0.25), ('e',500,0.2);
+```
+```{sql}
+select * from table0;
+```
+
+### transaction table: table1
+```{sql}
+create table table1 (chr1 text, chr2 text, num1 int, num2 int, num3 real, day text);
+```
+```{sql}
+insert into table1 (chr1, chr2, num1, num2, num3, day) values
+  ('a','c1',1,10,0.5,'2000-01-01'),
+  ('b','c1',2,20,0.33,'2000-02-01'),
+  ('c','c2',3,30,0.25,'2000-03-01');
+```
+```{sql}
+select * from table1;
+```
+
+```{sql}
+delete from table1;
+```
+
+
+## create table by R
+```{r}
+x1=sample(c('a','b','c','d'),100,replace=T,prob=c(0.6,0.3,0.15,0.05))
+x2=sample(c('c1','c2'),100,replace=T,prob=c(0.7,0.3))
+x3=floor(runif(100,0,10))
+x4=floor(runif(100,0,100))
+x5=runif(100,0,1)
+
+date_seq=seq.Date(as.Date('2020-01-01'),as.Date('2021-12-31'),by='day')
+x6=sample(date_seq,100,replace=T)
+
+sql0="insert into table1 (chr1, chr2, num1, num2, num3, day) values "
+sql1=paste0("('",x1,"','",x2,"',",x3,",",x4,",",x5,",'",x6,"');")
+
+sql=paste0(sql0,sql1)
+
+for(i in sql) dbExecute(con,i)
+```
+
+```{sql}
+select * from table1;
+```
+
+
+## rows in table0 exist in table1
+```{sql}
+select * from table0
+where exists (select 1 from table1 where table0.chr1=table1.chr1);
+```
+
+
+## rows its col1's value is equal, col2's value is not equal
+```{sql}
+select distinct t1.chr1, t1.chr2
+from table1 as t1 inner join table1 as t2
+  on t1.chr1=t2.chr1 and t1.chr2!=t2.chr2;
+```
+
+
+## groups with specified column's all elements meet condition
+The query retrieves all distinct values of chr1 in table1 where there are no rows in the same table (table1) for that chr1 value with num1 being less than 2.
+```{sql}
+select distinct chr1 from table1 as t1
+where not exists(
+  select 1 from table1 as t2
+  where t2.chr1=t1.chr1 and t2.num1<2
+);
+```
+
+
+## groups with specified multi columns meet each conditions
+The query retrieves distinct values of chr1 from table1 where certain conditions, specified in the CASE statement, are not satisfied for any rows associated with that chr1. In other words, it returns chr1 values where no rows meet the specified criteria.
+```{sql}
+select distinct chr1 from table1 as t1
+where not exists(
+  select 1 from table1 as t2
+  where t2.chr1=t1.chr1
+    and 1=case when chr2='c1' and num1<2 then 1
+      when chr2='c2' and num1<3 then 1
+      else 0 end
+);
+```
+
+
+## groups include all specified elements
+The query finds chr2 values in table1 such that the set of chr1 values associated with them (in table1) completely covers all chr1 values from table0.\
+The query retrieves distinct values of chr2 from table1 where all chr1 values from table0 are also present in a subset of rows in table1 with the same chr2.
+```{sql}
+select distinct chr2 from table1 as t1
+where not exists(
+  select chr1 from table0
+  except
+  select chr1 from table1 as t2
+  where t2.chr2=t1.chr2
+);
+```
+
+
+
+## rows in earliest or latest day
+```{sql}
+select chr1, chr2, min(day), max(day) from table1 group by chr1, chr2;
+```
+
+## cross aggregation by 2 categories
+```{sql}
+select chr1
+, count(case when chr2='c1' then 1 else null end) as n_c1
+, sum(case when chr2='c1' then num1 else 0 end) as sum_c1
+, count(case when chr2='c2' then 1 else null end) as n_c2
+, sum(case when chr2='c2' then num1 else 0 end) as sum_c2
+from table1 group by chr1;
+```
+
+
+## proportion of each row's value 
+```{sql}
+select chr1, num1
+, num1*1.0/sum(num1) over(partition by chr1) as prop
+from table1;
+```
+
+
+## pairs
+### duplication
+```{sql}
+select t1.chr1 as chr_a, t2.chr1 as chr_b
+from  table0 t1 cross join table0 t2
+```
+
+### permutation
+```{sql}
+select t1.chr1 as chr_a, t2.chr1 as chr_b
+from  table0 t1 inner join table0 t2 on t1.chr1!=t2.chr1;
+```
+
+### combination
+```{sql}
+select t1.chr1 as chr_a, t2.chr1 as chr_b
+from  table0 t1 inner join table0 t2 on t1.chr1<t2.chr1;
+```
+
+
+
+## values of back or forward days
+```{sql}
+select chr1 ,day
+, num1
+, lag(num1,1) over(partition by chr1 order by day) as back1
+, lag(num1,2) over(partition by chr1 order by day) as back2
+, lead(num1,1) over(partition by chr1 order by day) as forward1
+, lead(num1,2) over(partition by chr1 order by day) as forward2
+from table1
+where chr2='c2';
+```
+
+
+## cumulative, moving average
+```{sql}
+select day
+, num1
+, sum(num1) over(order by day) as acm
+, sum(num1) over(order by day
+  rows between 6 preceding and current row) as mv_acm
+, avg(num1) over(order by day
+  rows between 6 preceding and current row) as mv_avg  
+from table1
+where chr1='a' and chr2='c2';
+```
+
+
+## differnce of difference
+```{sql}
+with tmp1 as(
+  select day
+  , num1
+  , num1-lag(num1,1) over(order by day) as diff
+  from table1
+  where chr1='a' and chr2='c2'
+)
+select *
+, diff-lag(diff,1) over(order by day) as dofd
+from tmp1;
+```
+
+
+## see consecutive meet conditions
+```{sql}
+select *
+, case
+  when num3>lag(num3,1) over(order by day)
+    and lag(num3,1) over(order by day)>lag(num3,2) over(order by day) then 1 else null
+  end as up2
+from table1
+order by day;
+```
+
+
+```{sql}
+drop table table1;
+```
+```{sql}
+drop table table0;
+```
+
+
+
+
+## matrix on SQLite
+```{sql}
+create table mx0 (col1,col2,col3);
+```
+```{sql}
+insert into mx0 (col1,col2,col3) values
+  (1,2,3)
+, (3,5,7)
+, (7,11,13)
+, (13,17,19)
+;
+```
+```{sql}
+select * from mx0;
+```
+
+### add rowid and change variable name, make design matrix 
+```{sql}
+create table mx1 as
+with tmp1(id,x0,x1,x2) as(
+  select rowid,1, col1, col2 from mx0
+)
+select * from tmp1;
+```
+```{sql}
+select * from mx1;
+```
+
+### make sparce format matrix
+```{sql}
+create table smx as
+with tmp1(row,col,val) as(
+  select id,1, x0 from mx1
+  union all select id,2, x1 from mx1
+  union all select id,3, x2 from mx1
+)
+select * from tmp1;
+```
+```{sql}
+select * from smx;
+```
+
+### make sparce format vector(col is just 1) 
+```{sql}
+create table smy as
+with tmp1(row,col,val) as(
+  select rowid,1, col3 from mx0
+)
+select * from tmp1;
+```
+```{sql}
+select * from smy;
+```
+
+### transpose matrix
+```{sql}
+create table tsmx as
+select col as row, row as col, val from smx
+```
+```{sql}
+select * from tsmx;
+```
+
+### matrix addition
+```{sql}
+select row, col, t1.val+t2.val
+from smx as t1 natural join smx as t2
+;
+```
+
+### matrix multiplication
+```{sql}
+select t1.row,t2.col,sum(t1.val*t2.val) as val
+from tsmx as t1 inner join smx as t2 on t1.col=t2.row
+group by t1.row,t2.col;
+```
+
+#### to fasten multiplication 
+```
+create index idx1 on tsmx(col);
+create index idx2 on smx(row);
+delete from tsmx where val=0;
+delete from smx where val=0;
+```
+
+```{sql}
+drop table mx0;
+```
+```{sql}
+drop table mx1;
+```
+```{sql}
+drop table smx;
+```
+```{sql}
+drop table smy;
+```
+```{sql}
+drop table tsmx;
+```
+
+
+
+## process to JSON
+https://www.sqlite.org/json1.html
+```{r}
+dbExecute(con,
+          "create temp table table1 (id int, json text)")
+data=c("{'key1':1,'key2':10,'key3':{'key31':101,'key32':102,'key33':'aaa'}}",
+       "{'key1':2,'key2':20,'key3':{'key31':201,'key33':'bbb'}}",
+       "{'key1':3,'key3':{'key31':301,'key33':'ccc'}}")
+
+dbExecute(con,
+          paste0('insert into table1 (id, json) values ',
+                 '(1,"',data[1],'"),',
+                 '(2,"',data[2],'"),',
+                 '(3,"',data[3],'")'))
+```
+read
+```{sql}
+select * from table1;
+```
+```{sql}
+select id, json_extract(json, '$') as root from table1;
+```
+```{sql}
+select id, json_extract(json, '$.key2') as key2 from table1;
+```
+```{sql}
+select id, json_extract(json, '$.key3') as key3 from table1;
+```
+```{sql}
+select json_extract(json, '$.key3.key31') as key31 from table1;
+```
+update
+```{sql}
+update table1 set json=json_set(json,'$.key2',30) where id=3;
+```
+```{sql}
+select id, json_extract(json, '$.key2') as key2 from table1;
+```
+insert
+```{sql}
+update table1 set json=json_insert(json,'$.key3.key32',202) where id=2;
+```
+```{sql}
+select id, json_extract(json, '$.key3') as key3 from table1;
+```
+delete
+```{sql}
+update table1 set json=json_remove(json,'$.key2') where id=2;
+```
+```{sql}
+select id, json_extract(json, '$.key2') as key2 from table1;
+```
+make array
+```{sql}
+select id,json_array(id,id/10,id/100) as array from table1;
+```
+```{sql}
+drop table table1;
+```
+
+### use jsonb to fasten process
+```{r}
+dbExecute(con,
+          "create temp table table1 (id int, json text)")
+data=c("{'key1':1,'key2':10,'key3':{'key31':101,'key32':102,'key33':'aaa'}}",
+       "{'key1':2,'key2':20,'key3':{'key31':201,'key33':'bbb'}}",
+       "{'key1':3,'key3':{'key31':301,'key33':'ccc'}}")
+
+dbExecute(con,
+          paste0('insert into table1 (id, json) values ',
+                 '(1, jsonb("',data[1],'")),',
+                 '(2, jsonb("',data[2],'")),',
+                 '(3, jsonb("',data[3],'"))'))
+```
+
+read
+```{sql}
+select id
+, json
+, json(json)
+, jsonb_extract(json, '$.key1') as key1
+, jsonb_extract(json, '$.key2') as key2
+, jsonb_extract(json, '$.key3') as key3
+from table1;
+```
+
+```{sql}
+drop table table1;
+```
+
+
+
+## full text search
+```{r}
+tb=tribble(~id,~txt1,~txt2,
+           1,"Actions speak louder than words.","What you do has more impact than what you say.",
+           2,"What goes around, comes around.","Your actions, good or bad, will eventually come back to affect you.",
+           3,"A stitch in time saves nine.","Taking timely action prevents bigger problems later.",
+           4,"When in Rome, do as the Romans do.","Adapt to the customs and behaviors of the place or culture you are in.",
+           5,"You can’t have your cake and eat it too.","You can’t enjoy two contradictory benefits at the same time.",
+           6,"Better late than never.","It’s better to do something late than not at all.",
+           7,"Don’t put all your eggs in one basket.","Diversify your efforts or investments to reduce risk.",
+           8,"The grass is always greener on the other side.","People often think others have it better, even when it’s not true.",
+           9,"Many hands make light work.","Tasks are easier to accomplish when many people work together.",
+           10,"It’s no use crying over spilled milk.","Don’t waste time worrying about things that cannot be changed.")
+
+dbWriteTable(con,'table1',tb)
+dbReadTable(con,'table1')
+```
+
+```{sql}
+create virtual table vrt1 using fts5 (id,txt1,txt2);
+```
+```{sql}
+insert into vrt1 (id,txt1,txt2)
+  select * from table1;
+```
+
+```{sql}
+select * from vrt1 where vrt1 match 'you';
+```
+
+```{sql}
+select *
+, rank --bm25(vrt1)
+from vrt1 where vrt1 match 'you'
+order by rank;
+```
+
+```{sql}
+select *
+, rank --bm25(vrt1)
+from vrt1 where vrt1 match 'you' or vrt1 match 'better'
+order by rank;
+```
+
+```
+1. What is BM25?
+
+BM25 (Best Matching 25) is a widely-used ranking algorithm in information retrieval. Key features include:
+
+    Higher scores for more relevant documents.
+    Based on term frequency (TF) and inverse document frequency (IDF).
+    Adjusts for document length to ensure fairness.
+
+In SQLite, BM25 scores are accessible via the FTS5 module when performing full-text searches.
+
+2. Setting Up BM25 in SQLite
+(1) Enable the FTS5 Module
+
+First, create a virtual table using the FTS5 module:
+
+CREATE VIRTUAL TABLE documents USING fts5(content);
+
+Here, documents is the virtual table name, and content is the column for storing text data.
+(2) Insert Data
+
+Insert some text data into the table:
+
+INSERT INTO documents (content) VALUES
+('SQLite is a C library that provides a lightweight database engine.'),
+('SQLite supports full-text search using the FTS5 module.'),
+('BM25 is a ranking function used by search engines.');
+
+(3) Perform a Search
+
+Run a query using the bm25() function to calculate relevance scores for the results:
+
+SELECT content, bm25(documents) AS score
+FROM documents
+WHERE documents MATCH 'SQLite'
+ORDER BY score;
+
+3. How to Interpret BM25 Scores
+Example Output
+
+The result of the above query might look like this:
+content	score
+SQLite supports full-text search using the FTS5 module.	0.22314355
+SQLite is a C library that provides a lightweight database engine.	0.10536052
+Score Explanation
+
+    Lower scores indicate higher relevance.
+    In SQLite's implementation of BM25, smaller scores mean the document is more relevant to the search query.
+
+    Factors affecting scores:
+        Frequency of the search term in the document (higher frequency = higher relevance).
+        Document length (shorter documents are favored).
+        Overall term rarity across all documents (rare terms have more weight).
+
+4. Customizing BM25 in SQLite
+
+SQLite allows you to adjust the weighting of columns and scoring behavior:
+Adjusting Column Weights
+
+You can specify different weights for columns in the FTS5 table. For example:
+
+CREATE VIRTUAL TABLE documents USING fts5(content, title, bm25_weights=1.0, 2.0);
+
+In this case:
+
+    content column has a weight of 1.0.
+    title column has a weight of 2.0, making matches in the title more impactful.
+
+5. Practical Examples
+Search for Multiple Terms
+
+You can perform searches with multiple terms and retrieve scores:
+
+SELECT content, bm25(documents) AS score
+FROM documents
+WHERE documents MATCH 'SQLite database'
+ORDER BY score;
+```
+
+```{sql}
+drop table table1;
+```
+
+
+
+## covariance, correlation matrix
+
+```{sql}
+drop table if exists table0;
+```
+```{sql}
+create table table0 (col1,col2,col3);
+```
+```{sql}
+insert into table0 (col1,col2,col3) values
+(2,3,5),(7,11,13),(17,19,23);
+```
+```{sql}
+select * from table0;
+```
+```{sql}
+with tmp1 (x1,x2,x3) as(
+  select * from table0
+)
+select * from tmp1
+;
+```
+
+```{sql}
+with tmp1 (x1,x2,x3) as(
+  select * from table0
+)
+, tmp2 as(
+  select count(1) as n from tmp1
+)
+, tmp3 (row,col,val) as(
+  select 1,1,power(stdev(x1),2) from tmp1
+  union all select 1,2,(avg(x1*x2)-avg(x1)*avg(x2))*tmp2.n/(tmp2.n-1) from tmp1,tmp2
+  union all select 1,3,(avg(x1*x3)-avg(x1)*avg(x3))*tmp2.n/(tmp2.n-1) from tmp1,tmp2
+  union all select 2,2,power(stdev(x2),2) from tmp1
+  union all select 2,3,(avg(x2*x3)-avg(x2)*avg(x3))*tmp2.n/(tmp2.n-1) from tmp1,tmp2
+  union all select 3,3,power(stdev(x3),2) from tmp1
+)
+select * from tmp3
+;
+```
+
+
+```{sql}
+with tmp1 (x1,x2,x3) as(
+  select * from table0
+)
+, tmp2 as(
+  select count(1) as n from tmp1
+)
+, tmp3 (row,col,val) as(
+  select 1,1,1
+  union all select 1,2
+  ,(avg(x1*x2)-avg(x1)*avg(x2))/stdev(x1)/stdev(x2)*tmp2.n/(tmp2.n-1) from tmp1,tmp2
+  union all select 1,3
+  ,(avg(x1*x3)-avg(x1)*avg(x3))/stdev(x1)/stdev(x3)*tmp2.n/(tmp2.n-1) from tmp1,tmp2
+  union all select 2,2,1
+  union all select 2,3
+  ,(avg(x2*x3)-avg(x2)*avg(x3))/stdev(x2)/stdev(x3)*tmp2.n/(tmp2.n-1) from tmp1,tmp2
+  union all select 3,3,1
+)
+select * from tmp3
+;
+```
