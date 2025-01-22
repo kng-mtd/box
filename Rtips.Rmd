@@ -250,6 +250,26 @@ stat_mode(x=num_vec, ties="last")
 
 
 
+#coloring
+```{r}
+par(mfrow=c(2,3))
+xtabs(~species,penguins) |> barplot()
+xtabs(~species,penguins) |> barplot(col=2:4)
+xtabs(~species,penguins) |> barplot(col=c('red','green','blue'))
+xtabs(~species,penguins) |> barplot(col=c('gray20','gray40','gray60'))
+xtabs(~species,penguins) |> barplot(col=c('#ff0000','#00ff00','#0000ff'))
+xtabs(~species,penguins) |> barplot(col=c(rgb(1,0,0),rgb(0,1,0),rgb(0,0,1)))
+
+
+xtabs(~species,penguins) |> barplot(col=cm.colors(3))
+xtabs(~species,penguins) |> barplot(col=topo.colors(3))
+xtabs(~species,penguins) |> barplot(col=terrain.colors(3))
+xtabs(~species,penguins) |> barplot(col=heat.colors(3))
+xtabs(~species,penguins) |> barplot(col=rainbow(3))
+```
+
+
+
 #multi histgram, density
 ```{r}
 a=rpois(100,10)
