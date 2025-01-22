@@ -123,6 +123,50 @@ t(b)%*%b%*%t(x)%*%y
 
 
 
+#Jacobi's method
+```{r}
+tb=tibble(x0=c(1,1,1,1),x1=c(2,3,5,7),x2=c(3,5,7,11),
+          y=c(5,7,11,13))
+x=as.matrix(tb[1:3])
+y=tb$y
+
+a=t(x)%*%x
+d=ncol(a)
+a0=a
+g=diag(1,d)
+b=sum(a-diag(diag(a)))
+e=0.01
+
+while(b>e){
+  a1=(a-diag(diag(a)))
+  pos=which(a1==max(abs(a1)),arr.ind=T) # max value position(row,col) in matrix
+  r=pos[1]
+  c=pos[2]
+
+  h=atan(2*a1[r,c]/(a[r,r]-a[c,c]))/2
+  g1=diag(1,d) # rotation matrix
+  g1[r,r]=cos(h)
+  g1[r,c]=-sin(h)
+  g1[c,r]=sin(h)
+  g1[c,c]=cos(h)
+  
+  a=t(g1)%*%a%*%g1
+  g=g%*%g1
+
+  b=sum(a-diag(diag(a)))
+}
+
+eigen(a0)$values
+eigen(a0)$vectors
+cat('\n')
+
+sort(diag(a),dec=T)
+o=order(diag(a),decreasing=T)
+g[,o]
+```
+
+
+
 #ellipse solver
 ```{r}
 #ellipse
