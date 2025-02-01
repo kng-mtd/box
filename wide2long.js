@@ -9,7 +9,7 @@ var outputFile = args.length > 1 ? args(1) : "long.csv";
 // CSVファイルの読み込み
 function readCSV(filePath) {
     if (!fso.FileExists(filePath)) {
-        throw new Error("指定された入力ファイルが見つかりません: " + filePath);
+        throw new Error("Not found the file: " + filePath);
     }
     var file = fso.OpenTextFile(filePath, 1); // 1 = ForReading
     var data = [];
@@ -49,14 +49,14 @@ function transformCSV(inputData) {
 
 // メイン処理
 try {
-    WScript.Echo("入力ファイル: " + inputFile);
-    WScript.Echo("出力ファイル: " + outputFile);
+    WScript.Echo("input file: " + inputFile);
+    WScript.Echo("output file: " + outputFile);
 
     var inputData = readCSV(inputFile);
     var outputData = transformCSV(inputData);
     writeCSV(outputFile, outputData);
 
-    WScript.Echo("変換が完了しました。出力ファイル: " + outputFile);
+    WScript.Echo("Converted: " + outputFile);
 } catch (e) {
-    WScript.Echo("エラーが発生しました: " + e.message);
+    WScript.Echo("Error: " + e.message);
 }
