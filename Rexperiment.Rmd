@@ -994,16 +994,16 @@ wakachi
 #optimize matrix
 ```{r}
 # サンプルデータの作成
-n=3  # サンプル数
+n=5  # サンプル数
 p=3  # 特徴量の数
 
 x0=matrix(rnorm(p * n), nrow = p, ncol = n)  # 入力データ行列
 cat('data:\n')
 print(x0)
 
-x1=x0[1:p,1:n-1]
+x1=x0[,1:(n-1)]
 print(x1)
-x2=x0[1:p,2:n]
+x2=x0[,2:n]
 print(x2)
 
 # 目的関数の定義
@@ -1031,34 +1031,91 @@ cat('Optimal Value:',opt_val,'\n')
 
 ```{r}
 # サンプルデータの作成
+n=5  # サンプル数
+p=3  # 特徴量の数
+
+x0=matrix(rnorm(p * n), nrow = p, ncol = n)  # 入力データ行列
+cat('data:\n')
+print(x0)
+
+x1=x0[,1:(n-2)]
+print(x1)
+x2=x0[,2:(n-1)]
+print(x2)
+x3=x0[,3:n]
+print(x3)
+
+# 目的関数の定義
+obj_fn <- function(w) {
+  w1 <- matrix(w[1:(p*p)], nrow = p, ncol = p)
+  w2 <- matrix(w[(p*p+1):(2*p*p)], nrow = p, ncol = p)
+  prd <- w1 %*% x1 + w2 %*% x2
+  sum((x3 - prd)^2)
+}
+
+# 初期値の設定
+prm0 <- runif(2 * p * p)  # w1, w2 の両方のパラメータ分
+
+# optim関数を使って最適化
+rst <- optim(par = prm0, fn = obj_fn, method = "BFGS")
+
+# 結果の表示
+prm <- rst$par
+w1_opt <- matrix(prm[1:(p*p)], nrow = p, ncol = p)
+w2_opt <- matrix(prm[(p*p+1):(2*p*p)], nrow = p, ncol = p)
+opt_val <- rst$value
+
+options(digits=3, nsmall=3)
+cat('Optimal W1:\n')
+print(w1_opt)
+cat('Optimal W2:\n')
+print(w2_opt)
+cat('Optimal Value:', opt_val, '\n')
+```
+
+
+```{r}
+# サンプルデータの作成
 n=10  # サンプル数
 p=47  # 特徴量の数
 
 x0=matrix(rnorm(p * n), nrow = p, ncol = n)  # 入力データ行列
-x1=x0[1:p,1:n-1]
-x2=x0[1:p,2:n]
+cat('data:\n')
+print(x0)
+
+x1=x0[,1:(n-2)]
+print(x1)
+x2=x0[,2:(n-1)]
+print(x2)
+x3=x0[,3:n]
+print(x3)
 
 # 目的関数の定義
 obj_fn <- function(w) {
-  w <- matrix(w, nrow = p, ncol = p)
-  prd1 <- w %*% x1
-  prd2 <- w %*% x2
-  sum((x2 - prd1)^2)+sum((x1-prd2)^2)
+  w1 <- matrix(w[1:(p*p)], nrow = p, ncol = p)
+  w2 <- matrix(w[(p*p+1):(2*p*p)], nrow = p, ncol = p)
+  prd <- w1 %*% x1 + w2 %*% x2
+  sum((x3 - prd)^2)
 }
 
 # 初期値の設定
-prm0 <- runif(p*p)
+prm0 <- runif(2 * p * p)  # w1, w2 の両方のパラメータ分
 
 # optim関数を使って最適化
-rst <- optim(par = prm0, fn = obj_fn)
+rst <- optim(par = prm0, fn = obj_fn, method = "BFGS")
 
 # 結果の表示
-prm <- matrix(rst$par, nrow = p, ncol = p)
+prm <- rst$par
+w1_opt <- matrix(prm[1:(p*p)], nrow = p, ncol = p)
+w2_opt <- matrix(prm[(p*p+1):(2*p*p)], nrow = p, ncol = p)
 opt_val <- rst$value
 
-cat('Optimal Parameters:\n')
-print(prm)
-cat('Optimal Value:',opt_val,'\n')
+options(digits=3, nsmall=3)
+cat('Optimal W1:\n')
+print(w1_opt)
+cat('Optimal W2:\n')
+print(w2_opt)
+cat('Optimal Value:', opt_val, '\n')
 ```
 
 
