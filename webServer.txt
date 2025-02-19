@@ -980,4 +980,223 @@ Server running on port: 3000
 ### Notes:
 - **Sensitive data**: Avoid putting sensitive data directly in the `.env` file if it's shared or exposed. Consider using other secrets management solutions in production (like AWS Secrets Manager, or environment-specific configuration).
 
-Let me know if you need more help with setting this up!
+
+
+
+Cloudflare Pages は通常静的サイト向けですが、**Cloudflare Pages Functions** を使えばサーバーサイドの処理も可能になります。  
+
+
+---
+
+## 🌟 **手順の全体像**  
+✅ Cloudflare Pages 用にプロジェクト構成を変更  
+✅ SQLite をデプロイ可能な形式にする  
+✅ Cloudflare Pages にデプロイ  
+
+---
+
+## 📂 **フォルダ構成の変更**
+
+Cloudflare Pages は静的ファイルを `public` フォルダから配信し、  
+サーバーサイドのロジックを `functions` フォルダに置く必要があります。
+
+```
+project/
+│
+├── public/              # 静的ファイル（HTML, CSS, JS）
+││   └── index.html
+├── functions/            # Cloudflare Pages Functions
+││   └── [filename].js    # APIルート
+├── db.sqlite              # SQLite データベース
+├── package.json
+├── package-lock.json
+├── .env                   # 環境変数ファイル
+├── .gitignore
+└── wrangler.toml          # Cloudflare設定ファイル
+```
+
+---
+
+## 🛠️ **1. プロジェクトを Cloudflare 用に修正**
+
+✅ **静的ファイル → `public/` に移動**  
+✅ **Express の代わりに Cloudflare Pages Functions を利用**
+
+---
+
+### 🔧 **`functions/index.js`（メインのAPI）**
+
+Cloudflare Pages Functions は Express のように `app.get`, `app.post` を使えないため、  
+`fetch` イベントハンドラを使います。
+
+```javascript
+import { Database } from 'better-sqlite3';
+
+const db = new Database('./db.sqlite');
+
+// Basic 認証
+const basicAuth = (request, allowedUser, allowedPass) => {
+    const authHeader = request.headers.get("Authorization");
+    if (!authHeader || !authHeader.startsWith("Basic ")) {
+        return new Response("認証が必要です", {
+            status: 401,
+            headers: { "WWW-Authenticate": 'Basic realm="Restricted"' },
+        });
+    }
+
+    const credentials = atob(authHeader.split(" ")[1]).split(":");
+    const [user, pass] = credentials;
+    if (user !== allowedUser || pass !== allowedPass) {
+        return new Response("認証失敗", {
+            status: 401,
+            headers: { "WWW-Authenticate": 'Basic realm="Restricted"' },
+        });
+    }
+    return null; // 認証成功
+};
+
+export async function onRequestGet(context) {
+    // 閲覧専用ユーザー認証
+    const authResponse = basicAuth(context.request, "viewuser", "viewpass");
+    if (authResponse) return authResponse;
+
+    // データ取得
+    const items = db.prepare("SELECT * FROM items").all();
+    return new Response(JSON.stringify(items), {
+        headers: { "Content-Type": "application/json" },
+    });
+}
+
+export async function onRequestPost(context) {
+    // 管理者専用ユーザー認証
+    const authResponse = basicAuth(context.request, "admin", "adminpass");
+    if (authResponse) return authResponse;
+
+    const requestData = await context.request.json();
+    const { name } = requestData;
+
+    if (name) {
+        db.prepare("INSERT INTO items (name) VALUES (?)").run(name);
+        return new Response("Item added successfully", { status: 201 });
+    }
+
+    return new Response("Invalid request", { status: 400 });
+}
+```
+
+---
+
+✅ **閲覧専用ユーザー:** `viewuser/viewpass`  
+✅ **管理者ユーザー:** `admin/adminpass`
+
+---
+
+## 📦 **2. SQLite を Cloudflare 対応にする**
+
+💡 **Cloudflare Workers や Pages Functions ではローカルファイルシステムが利用できません！**  
+👉 なので、SQLite を **`D1` データベース** に移行します。
+
+---
+
+🔧 D1 データベースを作成
+1️⃣ Cloudflare Dashboard ログイン
+2️⃣ Workers & Pages → D1 → Create Database
+3️⃣ データベース名を設定し、空のデータベースを作成
+
+👉 D1 のエンドポイントや接続情報を取得。
+
+---
+
+## 📝 **3. wrangler.toml の作成**
+
+プロジェクトルートに `wrangler.toml` を作成します。
+
+```toml
+name = "htmx-sqlite-crud"
+compatibility_date = "2023-12-20"
+
+[vars]
+VIEW_USER = "viewuser"
+VIEW_PASS = "viewpass"
+ADMIN_USER = "admin"
+ADMIN_PASS = "adminpass"
+
+[[ d1_databases ]]
+binding = "DB"
+database_name = "your-d1-database-name"
+database_id = "your-d1-database-id"
+```
+
+👉 `binding` は `context.env.DB` でアクセスできるようにします。
+
+---
+
+## 🌐 **4. D1 を使ったデータベース操作**
+
+### 🔧 **`functions/index.js`（D1 対応版）**
+
+```javascript
+export async function onRequestGet(context) {
+    // 認証
+    const authResponse = basicAuth(context.request, "viewuser", "viewpass");
+    if (authResponse) return authResponse;
+
+    // D1 データベースからデータを取得
+    const { results } = await context.env.DB.prepare("SELECT * FROM items").all();
+    return new Response(JSON.stringify(results), {
+        headers: { "Content-Type": "application/json" },
+    });
+}
+
+export async function onRequestPost(context) {
+    // 認証
+    const authResponse = basicAuth(context.request, "admin", "adminpass");
+    if (authResponse) return authResponse;
+
+    const requestData = await context.request.json();
+    const { name } = requestData;
+
+    if (name) {
+        await context.env.DB.prepare("INSERT INTO items (name) VALUES (?)").bind(name).run();
+        return new Response("Item added successfully", { status: 201 });
+    }
+
+    return new Response("Invalid request", { status: 400 });
+}
+```
+
+✅ これで Cloudflare の D1 データベースを使用して CRUD を行えます！
+
+---
+
+## 🚀 **5. Cloudflare Pages にデプロイ**
+
+1️⃣ **GitHub プッシュ**
+
+```bash
+git init
+git add .
+git commit -m "Initial commit"
+git branch -M main
+git remote add origin <your-repo-url>
+git push -u origin main
+```
+
+---
+
+2️⃣ **Cloudflare Pages で新しいプロジェクトを作成**
+
+GitHub リポジトリを選択
+ビルドコマンドは不要
+ビルド出力ディレクトリを public に設定
+functions ディレクトリを自動的に検出
+
+---
+
+✅ **デプロイ完了！**  
+👉 Basic 認証で参照専用 & 管理専用の機能を分けつつ、  
+👉 Cloudflare D1 を使った SQLite CRUD アプリが動作します！✨
+
+---
+
+
