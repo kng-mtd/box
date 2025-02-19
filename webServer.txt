@@ -1200,3 +1200,183 @@ functions ディレクトリを自動的に検出
 ---
 
 
+
+Turso をデータベースとして使用し、Cloudflare Pages にデプロイする流れを説明します！  
+
+---
+
+## **🌟 概要**
+✅ **Turso**（SQLiteベースのサーバーレスDB）を使用  
+✅ **Cloudflare Pages Functions** でバックエンドを実装  
+✅ **HTMX** でフロントエンドを構築  
+
+---
+
+## **📂 1. フォルダ構成**
+```
+project/
+│
+├── public/              # 静的ファイル（HTML, CSS, JS）
+││   └── index.html
+├── functions/           # Cloudflare Pages Functions
+││   ├── index.js        # APIルート
+├── schema.sql           # DBスキーマ
+├── package.json
+├── .gitignore
+├── .env                 # Turso接続情報
+├── wrangler.toml        # Cloudflare設定
+└── README.md
+```
+
+---
+
+## **🛠️ 2. Turso のセットアップ**
+### **① Turso CLI をインストール**
+```sh
+curl -sSfL https://get.tur.so/install.sh | bash
+```
+または、Homebrew を使う場合：
+```sh
+brew install chiselstrike/tap/turso
+```
+
+---
+
+### **② Turso のアカウント作成**
+```sh
+turso auth signup
+```
+ログイン済みなら：
+```sh
+turso auth login
+```
+
+---
+
+### **③ データベースを作成**
+```sh
+turso db create mydatabase
+```
+👉 `mydatabase.turso.io` のようなデータベースが作成されます。
+
+---
+
+### **④ スキーマを適用**
+プロジェクト内に `schema.sql` を作成：
+```sql
+CREATE TABLE items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL
+);
+```
+適用するには：
+```sh
+turso db shell mydatabase < schema.sql
+```
+
+---
+
+### **⑤ データベースの URL とトークンを取得**
+```sh
+turso db tokens create mydatabase
+```
+👉 `.env` に保存：
+```ini
+TURSO_DATABASE_URL=https://your-database.turso.io
+TURSO_AUTH_TOKEN=your-auth-token
+```
+
+---
+
+## **📝 3. `functions/index.js`（Turso を使った API）**
+Cloudflare Pages Functions では `fetch` を使って Turso にリクエストを送ります。
+
+```javascript
+export async function onRequestGet(context) {
+    const url = context.env.TURSO_DATABASE_URL;
+    const token = context.env.TURSO_AUTH_TOKEN;
+
+    const response = await fetch(`${url}/execute`, {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            statements: ["SELECT * FROM items;"]
+        })
+    });
+
+    const data = await response.json();
+    return new Response(JSON.stringify(data.results[0].rows), {
+        headers: { "Content-Type": "application/json" }
+    });
+}
+
+export async function onRequestPost(context) {
+    const url = context.env.TURSO_DATABASE_URL;
+    const token = context.env.TURSO_AUTH_TOKEN;
+    const requestData = await context.request.json();
+    const { name } = requestData;
+
+    if (!name) {
+        return new Response("Invalid request", { status: 400 });
+    }
+
+    await fetch(`${url}/execute`, {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            statements: [`INSERT INTO items (name) VALUES (?);`],
+            args: [[name]]
+        })
+    });
+
+    return new Response("Item added", { status: 201 });
+}
+```
+
+---
+
+## **📦 4. `wrangler.toml` の設定**
+Cloudflare Pages で環境変数を利用するための設定：
+```toml
+name = "htmx-turso-app"
+compatibility_date = "2023-12-20"
+
+[vars]
+TURSO_DATABASE_URL = "https://your-database.turso.io"
+TURSO_AUTH_TOKEN = "your-auth-token"
+```
+
+---
+
+## **🚀 5. Cloudflare Pages にデプロイ**
+### **① GitHub にプッシュ**
+```sh
+git init
+git add .
+git commit -m "Initial commit"
+git branch -M main
+git remote add origin <your-repo-url>
+git push -u origin main
+```
+
+### **② Cloudflare Pages でプロジェクト作成**
+1. Cloudflare Dashboard で **Pages** を開く  
+2. 「新しいプロジェクトを作成」→ GitHub を選択  
+3. `public/` を静的サイトのルートとして設定  
+4. 「デプロイ」ボタンを押す  
+
+---
+
+## 🎉 **完成！**
+👉 **Turso + Cloudflare Pages でサーバーレス CRUD アプリが動作！**  
+👉 **HTMX を使ってリロードなしでデータ操作！**  
+👉 **Basic 認証やその他の API も簡単に追加可能！**  
+
+🔥 **デプロイ後の動作確認や追加のカスタマイズもできます！**  
+「エラーが出た」「追加機能が欲しい」などあれば、気軽に聞いてください！ 🚀
