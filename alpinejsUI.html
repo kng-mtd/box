@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width">
@@ -23,129 +23,73 @@
         }
     </style>
 
-</head>
+<body x-data="{ dark: false }" :class="{ 'dark-mode': dark }">
 
-<body x-data="{ dark: false }" :class="{ 'dark-mode': dark }" class="p-4 min-h-screen">
-
-    <button @click="dark = !dark" class="px-4 py-2 bg-blue-500 text-white">
-        Toggle Dark Mode
-    </button>
-
-    <p class="mt-4">Current Mode: <span x-text="dark ? 'Dark Mode' : 'Light Mode'"></span></p>
-
+  <button @click="dark = !dark">Toggle Dark Mode</button>
+    <p>Current Mode: <span x-text="dark ? 'Dark' : 'Light"></span></p>
 
 
   <div x-data="{ open: false }">
-    <button @click="open = true">開く</button>
-    
-    <div x-show="open" class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center">
-        <div class="bg-white p-6 rounded shadow-lg">
-            <p>モーダルの内容</p>
-            <button @click="open = false">閉じる</button>
-        </div>
-    </div>
-  </div>
-
-  
-  <div x-data="{ open: false }" class="relative">
-    <button @click="open = !open" class="px-4 py-2 bg-blue-500 text-white">メニュー</button>
-    
-    <div x-show="open" class="absolute mt-2 bg-white shadow-lg rounded">
-        <a href="#" class="block px-4 py-2 hover:bg-gray-100">リンク1</a>
-        <a href="#" class="block px-4 py-2 hover:bg-gray-100">リンク2</a>
-        <a href="#" class="block px-4 py-2 hover:bg-gray-100">リンク3</a>
+    <button @click="open = true">open</button>
+    <div x-show="open">
+      <p>contents</p>
+      <button @click="open = false">close</button>
     </div>
   </div>
 
   
   <div x-data="{ open: false }">
-    <button @click="open = !open" class="px-4 py-2 bg-green-500 text-white">開く/閉じる</button>
+    <button @click="open = !open">open/close</button>
     <div x-show="open" class="mt-2 p-4 border rounded">
-        ここにアコーディオンの内容が入ります。
+      <p>contents</p>
     </div>
   </div>
 
   
-  <div x-data="{ tab: 'first' }">
-    <div class="flex space-x-4">
-        <button @click="tab = 'first'" :class="{ 'bg-blue-500 text-white': tab === 'first' }" class="px-4 py-2 border">タブ1</button>
-        <button @click="tab = 'second'" :class="{ 'bg-blue-500 text-white': tab === 'second' }" class="px-4 py-2 border">タブ2</button>
+  <div x-data="{ tab: '1st' }">
+    <div>
+      <button @click="tab = '1st'">tab1</button>
+      <button @click="tab = '2nd'">tab2</button>
+      <button @click="tab = '3rd'">tab3</button>
     </div>
-    
-    <div x-show="tab === 'first'" class="mt-4">タブ1の内容</div>
-    <div x-show="tab === 'second'" class="mt-4">タブ2の内容</div>
+    <div x-show="tab === '1st'">tab1 contents</div>
+    <div x-show="tab === '2nd'">tab2 contents</div>
+    <div x-show="tab === '3rd'">tab3 contents</div>
   </div>
+  
 
   
+  <div x-data="{ on: false }">
+    <input type="checkbox" class="sr-only" @click="on = !on"><span x-text="on ? ' ON' : ' OFF'"></span>
+  </div>
+  
+
+
   <div x-data="{ count: 0 }">
-    <button @click="count--" class="btn">-</button>
-    <span x-text="count" style="margin: 0 15px; font-size: 20px;"></span>
-    <button @click="count++" class="btn">+</button>
+    <h1>
+    <button @click="count--">-</button>
+    <span x-text="count"></span>
+    <button @click="count++">+</button>
+    </h1>
   </div>
 
   
+
   <div x-data="{ show: false }">
-    <button @click="show = true; setTimeout(() => show = false, 3000)" class="px-4 py-2 bg-purple-500 text-white">通知を表示</button>
-    
-    <div x-show="show" class="fixed bottom-4 right-4 bg-gray-800 text-white p-4 rounded shadow">
-        通知メッセージ！
-    </div>
+    <button @click="show = true; setTimeout(() => show = false, 1000)">tempolary notice</button>
+      <div x-show="show">message</div>
   </div>
   
 
-  <div x-data="{ index: 0, images: ['image1.jpg', 'image2.jpg', 'image3.jpg'] }">
+  <div x-data="{ index: 0, images: ['img1.jpg', 'img2.jpg', 'img3.jpg'] }">
     <button @click="index = (index - 1 + images.length) % images.length">←</button>
-    <img :src="images[index]" class="w-64 h-64 object-cover mx-2">
+    <img :src="images[index]">
     <button @click="index = (index + 1) % images.length">→</button>
   </div>
 
   
-  <div x-data="{ on: false }">
-    <label class="flex items-center cursor-pointer">
-        <div class="mr-3 text-gray-700" x-text="on ? 'ON' : 'OFF'"></div>
-        <div class="relative">
-            <input type="checkbox" class="sr-only" @click="on = !on">
-            <div class="w-10 h-6 bg-gray-400 rounded-full transition" :class="{ 'bg-green-500': on }"></div>
-            <div class="absolute w-4 h-4 bg-white rounded-full top-1 left-1 transition" :class="{ 'translate-x-4': on }"></div>
-        </div>
-    </label>
-　　</div>
-
-
-  <div x-data="{ query: '', items: ['Apple', 'Banana', 'Cherry', 'Date', 'Grapes'] }">
-    <input type="text" x-model="query" placeholder="検索..." class="border p-2 w-full">
-    <ul class="mt-2 border p-2">
-        <template x-for="item in items.filter(i => i.toLowerCase().includes(query.toLowerCase()))" :key="item">
-            <li x-text="item" class="p-1"></li>
-        </template>
-    </ul>
-　</div>
 
   
-  <div x-data="{ time: 10, start() { setInterval(() => { if(this.time > 0) this.time-- }, 1000) } }">
-    <button @click="start" class="px-4 py-2 bg-blue-500 text-white">開始</button>
-    <h1 class="text-2xl mt-2" x-text="time"></h1>
-  </div>
-
-  
-  <div x-data="{ show: false }" @scroll.window="show = window.scrollY > 100" class="fixed bottom-5 right-5">
-    <button x-show="show" @click="window.scrollTo({ top: 0, behavior: 'smooth' })" class="bg-blue-500 text-white px-4 py-2 rounded">
-        ↑ トップへ戻る
-    </button>
-  </div>
-
-  
-  <div x-data="{ loading: true }" x-init="setTimeout(() => loading = false, 3000)">
-    <!-- ローディング中のスケルトン -->
-    <div x-show="loading" class="w-64 h-32 bg-gray-300 animate-pulse rounded"></div>
-
-    <!-- データが読み込まれた後の表示 -->
-    <div x-show="!loading" class="w-64 h-32 bg-white border p-4 rounded shadow">
-        <p>データが読み込まれました！</p>
-    </div>
-  </div>
-
-
 
 
   <div x-data>
@@ -158,16 +102,32 @@
 
   <div x-data="{ image: null }">
     <input type="file" @change="image = URL.createObjectURL($event.target.files[0])">
-    <img x-show="image" :src="image" class="mt-2 w-32 h-32 object-cover">
-  </div>
-
-  
-  <div x-data="{ show: false }" x-init="window.addEventListener('scroll', () => show = window.scrollY > 200)">
-    <div x-show="show" x-transition class="p-4 bg-blue-500 text-white fixed bottom-5 right-5">
+    <img x-show="image" :src="image" class="mt-2 w-32 h-32 obje class="mt-2 border p-2-white fixed bottom-5 right-5">
         スクロールで表示
     </div>
   </div>
+  class="mt-2 border p-2
+
+
+  <div x-data="{ query: '', items: ['Apple', 'Banana', 'Cherry', 'Date', 'Grapes'] }">
+    <input type="text" x-model="query" placeholder="search...">
+    <ul>
+        <template x-for="item in items.filter(i => i.toLowerCase().includes(query.toLowerCase()))" :key="item">
+            <li x-text="item"></li>
+        </template>
+    </ul>
+  </div>
 
   
-</body>
-</html>
+
+  <div x-data="{ time: 10, start() { setInterval(() => { if(this.time > 0) this.time-- }, 1000) } }">
+    <button @click="start">start</button>
+    <h1 x-text="time"></h1>
+  </div>
+
+  
+
+  <div x-data="{ show: false }" @scroll.window="show = window.scrollY > 100">
+    <button x-show="show" @click="window.scrollTo({ top: 0, behavior: 'smooth' })">To the top</button>
+  </div>
+
