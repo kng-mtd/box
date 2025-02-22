@@ -5,19 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AlpineJS Form</title>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-        
-        	<!-- Google Fonts -->
-	<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
-	
-	<!-- CSS Reset -->
-	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css">
-	<!-- Milligram CSS -->
-	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css">
     
+    <!-- CSS Reset -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css">
+    <!-- Milligram CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css">
+
+    <!-- Google Fonts -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
+
     <style>
         body {
             margin: 0;
-            font-family: Arial, sans-serif;
+            transition: background-color 0.3s, color 0.3s;
         }
 
         /* Header & Footer */
@@ -26,16 +26,21 @@
             left: 0;
             width: 100%;
             background: #333;
-            color: white;
             text-align: center;
             padding: 15px;
             z-index: 10;
-            display: flex;
-            justify-content: space-around;
+            color: #eee;
             align-items: center;
         }
-        .header { top: 0; }
-        .footer { bottom: 0; }
+        .header {
+            top: 0;
+            height: 60px;
+        }
+        .footer { 
+            bottom: 0;
+            height: 40px;
+        }
+
         .nav-links a {
             color: white;
             text-decoration: none;
@@ -45,14 +50,28 @@
             text-decoration: underline;
         }
 
-        /* Main Content (Scrollable) */
+        /* Main Content */
         .main-content {
-            margin-top: 60px;
-            margin-bottom: 60px;
-            padding: 20px;
-            height: calc(100vh - 120px);
+            margin-top: 30px;
+            margin-bottom: 15px;
+            padding: 30px;
+            height: calc(100vh - 70px);
             overflow-y: auto; /* Enables scrolling inside main content */
-            background: #f4f4f4;
+        }
+        .dark-mode {
+            background-color: #222; /* Dark gray */
+            color: #eee; /* Light text */
+        }
+
+        .main-columns {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+
+        .main-column,
+        .sub-column {
+            padding: 0px;
         }
 
         /* Sidebar */
@@ -62,9 +81,9 @@
             top: 0;
             height: 100vh;
             width: 300px;
-            background: #222;
+            background: #333;
             color: white;
-            padding: 20px;
+            padding: 15px;
             transform: translateX(-100%);
             transition: transform 0.3s ease-in-out;
             z-index: 20;
@@ -78,7 +97,7 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
-            margin-top: 20px;
+            margin-top: 30px;
         }
         .sidebar-links a {
             color: white;
@@ -97,49 +116,32 @@
             position: fixed;
             top: 15px;
             left: 15px;
-            background: #ff9800;
+            background: #aaa;
             color: white;
             border: none;
-            padding: 10px 15px;
+            padding: 0px 10px;
             cursor: pointer;
             z-index: 30;
         }
-
-        /* Back to Top Button */
-        .back-to-top {
-            display: block;
-            width: 150px;
-            margin: 40px auto;
-            padding: 10px;
-            background: #007bff;
-            color: white;
-            text-align: center;
-            text-decoration: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .back-to-top:hover {
-            background: #0056b3;
-        }
     </style>
 </head>
-<body x-data="{ sidebarOpen: false }">
-
-    <!-- Header -->
+<body x-data="{ sidebarOpen: false, dark: false }">
     <header class="header">
         <button @click="sidebarOpen = !sidebarOpen" class="toggle-btn">☰</button>
         <nav class="nav-links">
-            <a href="#">Home</a>
-            <a href="#">Services</a>
-            <a href="#">Contact</a>
+            <a href="#">link1</a>
+            <a href="#">link2</a>
+            <a href="#">link3</a>
+            <button @click="dark = !dark">Dark Mode</button>
         </nav>
+
     </header>
 
     <!-- Sidebar -->
     <aside class="sidebar" :class="{ 'open': sidebarOpen }">
         <button @click="sidebarOpen = false" class="toggle-btn">×</button>
-        <h2>Sidebar</h2>
         <nav class="sidebar-links">
+            <br>
             <a href="#">Link 1</a>
             <a href="#">Link 2</a>
             <a href="#">Link 3</a>
@@ -147,24 +149,30 @@
     </aside>
 
     <!-- Main Content -->
-    <main class="main-content">
-        <h1>Scrollable Main Content</h1>
-        <p>Add a lot of content here to make it scrollable.</p>
-        <p>...</p>
-        <p style="height: 1200px;">Long content section...</p>
-
+    <main class="main-content" :class="{ 'dark-mode': dark }">
+        <h1>Scrollable Main Content
+            <div class="main-columns">
+                <div class="main-column">
+                    main
+                    <p>...</p>
+                    <p>...</p>
+                    <p>...</p>
+                    <p>...</p>
+                    <p>...</p>
+                </div>
+                <div class="sub-column">
+                    sub
+                    <p>...</p>
+                    <p>...</p>
+                    <p>...</p>
+                    <p>...</p>
+                    <p>...</p>
+                </div>
+            </div>
+        </h1>
         <!-- Back to Top Button -->
-        <a href="#" class="back-to-top">Back to Top</a>
+        <button class="back-to-top">▲ TOP</button>
     </main>
-
-    <!-- Footer -->
-    <footer class="footer">
-        <nav class="nav-links">
-            <a href="#">Privacy</a>
-            <a href="#">Terms</a>
-            <a href="#">Help</a>
-        </nav>
-    </footer>
 
     <script>
         document.addEventListener("DOMContentLoaded", function () {
@@ -174,6 +182,15 @@
             });
         });
     </script>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <nav class="nav-links">
+            <a href="#">link1</a>
+            <a href="#">link2</a>
+            <a href="#">link3</a>
+        </nav>
+    </footer>
 
 </body>
 </html>

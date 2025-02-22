@@ -5,23 +5,21 @@
   <meta name="viewport" content="width=device-width">
   <title>AlpineJS UI</title>
   <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-      
-            	<!-- Google Fonts -->
-	<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
 	
 	<!-- CSS Reset -->
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css">
 	<!-- Milligram CSS -->
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css">
     
-
+ 	<!-- Google Fonts -->
+	<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
     <style>
         body {
             transition: background-color 0.3s, color 0.3s;
         }
         .dark-mode {
-            background-color: #1a202c; /* Dark gray */
-            color: #f7fafc; /* Light text */
+            background-color: #222; /* Dark gray */
+            color: #eee; /* Light text */
         }
     </style>
 
@@ -167,14 +165,6 @@
   <div x-data="{ show: false }" x-init="window.addEventListener('scroll', () => show = window.scrollY > 200)">
     <div x-show="show" x-transition class="p-4 bg-blue-500 text-white fixed bottom-5 right-5">
         スクロールで表示
-    </div>
-  </div>
-
-  
-  <div x-data="{ show: true }">
-    <div x-show="show" x-transition class="bg-red-500 text-white p-4 rounded">
-        <p>エラーメッセージ</p>
-        <button @click="show = false" class="text-sm underline">閉じる</button>
     </div>
   </div>
 
