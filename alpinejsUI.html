@@ -18,15 +18,15 @@
             transition: background-color 0.3s, color 0.3s;
         }
         .dark-mode {
-            background-color: #222; /* Dark gray */
-            color: #eee; /* Light text */
+            background-color: #222;
+            color: #eee;
         }
     </style>
 
 <body x-data="{ dark: false }" :class="{ 'dark-mode': dark }">
 
   <button @click="dark = !dark">Toggle Dark Mode</button>
-    <p>Current Mode: <span x-text="dark ? 'Dark' : 'Light"></span></p>
+    <p>Current Mode: <span x-text="dark ? 'Dark' : 'Light'"></span></p>
 
 
   <div x-data="{ open: false }">
@@ -40,7 +40,7 @@
   
   <div x-data="{ open: false }">
     <button @click="open = !open">open/close</button>
-    <div x-show="open" class="mt-2 p-4 border rounded">
+    <div x-show="open">
       <p>contents</p>
     </div>
   </div>
@@ -60,7 +60,7 @@
 
   
   <div x-data="{ on: false }">
-    <input type="checkbox" class="sr-only" @click="on = !on"><span x-text="on ? ' ON' : ' OFF'"></span>
+    <input type="checkbox" @click="on = !on"><span x-text="on ? ' ON' : ' OFF'"></span>
   </div>
   
 
@@ -81,32 +81,25 @@
   </div>
   
 
+  <div x-data="{ image: null }">
+    <input type="file" @change="image = URL.createObjectURL($event.target.files[0])">
+    <img x-show="image" :src="image">
+  </div>
+
+
   <div x-data="{ index: 0, images: ['img1.jpg', 'img2.jpg', 'img3.jpg'] }">
     <button @click="index = (index - 1 + images.length) % images.length">←</button>
     <img :src="images[index]">
     <button @click="index = (index + 1) % images.length">→</button>
   </div>
 
-  
-
-  
 
 
   <div x-data>
-    <input id="copyText" type="text" value="コピーするテキスト" class="border p-2 w-full">
-    <button @click="navigator.clipboard.writeText(document.getElementById('copyText').value)" class="px-4 py-2 bg-green-500 text-white mt-2">
-        コピー
-    </button>
+    <input id="copyText" type="text" placeholder="text to copy">
+    <button @click="navigator.clipboard.writeText(document.getElementById('copyText').value)">copy</button>
   </div>
 
-
-  <div x-data="{ image: null }">
-    <input type="file" @change="image = URL.createObjectURL($event.target.files[0])">
-    <img x-show="image" :src="image" class="mt-2 w-32 h-32 obje class="mt-2 border p-2-white fixed bottom-5 right-5">
-        スクロールで表示
-    </div>
-  </div>
-  class="mt-2 border p-2
 
 
   <div x-data="{ query: '', items: ['Apple', 'Banana', 'Cherry', 'Date', 'Grapes'] }">
