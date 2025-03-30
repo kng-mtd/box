@@ -1,0 +1,372 @@
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>alpineJS</title>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
+    ></script>
+
+    <!-- Google Fonts -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic"
+    />
+    <!-- CSS Reset -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css"
+    />
+    <!-- Milligram CSS -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css"
+    />
+    <style>
+      .bg-black {
+        background: black;
+      }
+    </style>
+  </head>
+
+  <body x-data class="container" :class="$store.darkMode && 'bg-black'">
+    <h1>AlpineJS</h1>
+
+    <script>
+      let obj1 = { key1: "val1", key2: "val2", num1: 10, num2: 20 };
+    </script>
+    <div x-data="obj1">
+      <p x-text="key1"></p>
+      <p x-text="key2"></p>
+      <span x-text="key1"></span>
+      <span x-text="key2"></span>
+      <h1 x-text="key1"></h1>
+      <h1 x-text="key2"></h1>
+      <p x-text="num1+num2"></p>
+      <p x-text="num1*num2"></p>
+    </div>
+    <br />
+
+    <div x-data="{open: false}">
+      <button @click="open=!open">open/close</button>
+      <div x-show="open">Content...</div>
+    </div>
+    <br />
+
+    <div x-data="{open: false}">
+      <button @click="open=!open">open/close transition</button>
+      <div x-show="open" x-transition>Content...</div>
+    </div>
+    <br />
+
+    <div x-data="{open: false}">
+      <button @click="open=!open">open/close transition 500ms</button>
+      <div x-show="open" x-transition.duration.500ms>Content...</div>
+    </div>
+    <br />
+
+    <script>
+      let obj2 = { arr: ["element1", "element2", "element3"] };
+    </script>
+    <div x-data="obj2">
+      <template x-for="el in arr">
+        <div x-text="el"></div>
+      </template>
+    </div>
+    <br />
+
+    <script>
+      let obj3 = { html: "<h1>html0</h1>" };
+    </script>
+    <div x-data="obj3">
+      <div x-html="html"></div>
+    </div>
+    <br />
+
+    <button @click='alert("popup alert");console.log("popup alert")'>
+      Popup alert
+    </button>
+    <br />
+
+    <button
+      @click='confirm("popup confirm") ? console.log("yes") : console.log("no")'
+    >
+      Popup confirm
+    </button>
+    <br />
+
+    <button
+      x-data="{open: true}"
+      @click='open=false; console.log("hidden")'
+      x-show="open"
+    >
+      Hide me
+    </button>
+    <br />
+
+    <button @click='$event.target.remove(); console.log("removed")'>
+      Remove me
+    </button>
+    <br />
+
+    <div @fn0='console.log("fn0 was called")'>
+      <button @click="$dispatch('fn0')">call function</button>
+    </div>
+    <br />
+
+    <script>
+      let jsVar = "";
+      let obj4 = {
+        text: "input text to JS variable",
+        toJSVar() {
+          jsVar = this.text;
+          console.log(jsVar);
+        },
+      };
+    </script>
+    <div x-data="obj4">
+      <input
+        type="text"
+        x-model="text"
+        placeholder="input text to Javascript"
+      />
+      <button @click="toJSVar()">to JS variable</button>
+    </div>
+
+    <input
+      type="text"
+      placeholder="input text, push enter or space"
+      @keyup.enter='alert("Enter pushed");
+                         console.log("enter pushed")'
+      @keyup.space='alert("Space pushed");
+                         console.log("space pushed")'
+    />
+    <br />
+
+    <div x-data="{black: false}">
+      <button @click="black=!black">black/no black</button>
+      <div :class='black? "" : "bg-black"'>
+        <h1>Contents...</h1>
+      </div>
+    </div>
+    <br />
+
+    <div x-data='{btn0: "select with a mouse"}'>
+      <button
+        x-text="btn0"
+        @click='btn0="selected"'
+        @click.shift='btn0="selected with shift"'
+        @mousemove.shift='btn0="select with shift"'
+        @mouseout='btn0="select with a mouse"'
+      ></button>
+    </div>
+    <br />
+
+    <div x-data='{inp0: ""}'>
+      <input
+        type="text"
+        placeholder="input text then output below"
+        x-model="inp0"
+      />
+      <span x-text="inp0"></span>
+    </div>
+    <br />
+
+    <div x-data='{inp0: ""}'>
+      <textarea
+        placeholder="input multi row text then output below"
+        x-model="inp0"
+      ></textarea>
+      <span x-text="inp0"></span>
+    </div>
+    <br />
+
+    <div x-data='{inp0: ""}'>
+      <input type="text" x-model="inp0" />
+      <button @click='inp0="changed"'>Change input</button>
+    </div>
+    <br />
+
+    <div x-data='{cbx0: "false"}'>
+      <input type="checkbox" x-model="cbx0" />
+      <span x-text="cbx0"></span>
+    </div>
+    <br />
+
+    <div x-data="{cbx1: []}">
+      <input type="checkbox" value="ch1" x-model="cbx1" />
+      <input type="checkbox" value="ch2" x-model="cbx1" />
+      <input type="checkbox" value="ch3" x-model="cbx1" />
+      <span x-text="cbx1"></span>
+    </div>
+    <br />
+
+    <div x-data='{rad0: ""}'>
+      <input type="radio" value="Yes" x-model="rad0" />
+      <input type="radio" value="No" x-model="rad0" />
+
+      <span x-text="rad0"></span>
+    </div>
+    <br />
+
+    <div x-data='{rad1: ""}'>
+      <input type="radio" value="rd1" x-model="rad1" />
+      <input type="radio" value="rd2" x-model="rad1" />
+      <input type="radio" value="rd3" x-model="rad1" />
+      <span x-text="rad1"></span>
+    </div>
+    <br />
+
+    <div x-data='{option: ""}'>
+      <select x-model="option">
+        <option value="" disabled>select an option</option>
+        <option>opt1</option>
+        <option>opt2</option>
+        <option>opt3</option>
+      </select>
+      <span x-text="option"></span>
+    </div>
+    <br />
+
+    <div x-data='{option:""}'>
+      <select x-model="option" multiple>
+        <option value="" disabled>select some options</option>
+        <option>opt1</option>
+        <option>opt2</option>
+        <option>opt3</option>
+      </select>
+      <span x-text="option"></span>
+    </div>
+    <br />
+
+    <script>
+      let obj5 = {
+        option: ["opt1", "opt2", "opt3", "opt4", "opt5"],
+        selected: [],
+      };
+    </script>
+    <div x-data="obj5">
+      <select x-model="selected" multiple>
+        <option value="" disabled>select some options</option>
+        <template x-for="el in option">
+          <option x-text="el"></option>
+        </template>
+      </select>
+      <span x-text="selected"></span>
+    </div>
+    <br />
+
+    <div x-data="{range: 0}">
+      <input type="range" x-model="range" min="0" max="100" step="1" />
+      <span x-text="range"></span>
+    </div>
+    <br />
+
+    <div x-data="{name: '', email: ''}">
+      <input
+        type="text"
+        placeholder="input name less than 20 characters"
+        x-model="name"
+      />
+      <span x-show="name.length > 20">The name is too long.</span>
+      <input
+        type="text"
+        placeholder="input email between 10 and 30 characters"
+        x-model="email"
+      />
+      <span x-show="!email.includes('@')">Please enter a valid email.</span>
+      <span x-show="email.length > 30">The email is too long.</span>
+      <span x-show="email.length < 10">The email is too short.</span>
+    </div>
+    <br />
+
+    <ul>
+      <template x-for="i in 5">
+        <li x-text="i"></li>
+      </template>
+    </ul>
+
+    <ul x-data="{ arr:{key1:'val1', key2:'val2', key3:'val3'}}">
+      <template x-for="(val, index) in arr">
+        <li><span x-text="index"></span>: <span x-text="val"></span></li>
+      </template>
+    </ul>
+    <br />
+
+    <ul
+      x-data="{ arr:[{key1:10, key2:10},{key1:20, key2:0},{key1:3, key2:30}]}"
+    >
+      <template x-for="(item, index) in arr">
+        <li>
+          <span x-text="index+1"></span>: <span x-text="item.key1"></span>,
+          <span x-text="item.key2"></span>
+        </li>
+      </template>
+    </ul>
+    <br />
+
+    <ul
+      x-data="{fetched:[]}"
+      x-init='fetched=await (
+                 await fetch("https://jsonplaceholder.typicode.com/todos/")).json()'
+    >
+      <li>
+        <span x-text="fetched[0].id"></span>
+        <span x-text="fetched[0].title"></span>
+      </li>
+      <li>
+        <span x-text="fetched[1].id"></span>
+        <span x-text="fetched[1].title"></span>
+      </li>
+      <li>
+        <span x-text="fetched[2].id"></span>
+        <span x-text="fetched[2].title"></span>
+      </li>
+    </ul>
+    <br />
+
+    <ul
+      x-data="{fetched:[]}"
+      x-init='fetched=await (
+                 await fetch("https://jsonplaceholder.typicode.com/todos/")).json()'
+    >
+      <template x-for="el in fetched.slice(0, 5)">
+        <li>
+          <span x-text="el.id"></span>
+          <span x-text="el.title"></span>
+        </li>
+      </template>
+    </ul>
+    <br />
+
+    <span>
+      $el is a magic property that can be used to retrieve the current DOM node.
+    </span>
+    <button @click="$el.innerHTML=($el.innerHTML=='Hello')? 'Goodbye':'Hello'">
+      Hello
+    </button>
+    <br />
+
+    <span>
+      $refs is a magic property that can be used to retrieve DOM elements marked
+      with x-ref like id inside the component.
+    </span>
+    <br />
+    <span x-ref="id0">text in DOM</span>
+    <button @click="console.log($refs.id0.innerText)">get text in DOM</button>
+    <br />
+
+    <span>
+      $store is a magic property that can be used to access global state.
+    </span>
+    <button x-data @click="$store.darkMode = ! $store.darkMode">
+      Toggle Dark Mode
+    </button>
+    <script>
+      document.addEventListener("alpine:init", () => {
+        Alpine.store("darkMode", false);
+      });
+    </script>
+    <br />
+  </body>
+</html>
