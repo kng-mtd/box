@@ -1572,3 +1572,55 @@ v=v[v!='']
 
 
 
+#big sparse matrix to dense matrix
+```{r}
+library(Matrix)
+library(data.table)
+
+num_rows <- 1e6
+
+df <- data.table(
+  row = sample(1:1e3, num_rows, replace = T),
+  col = sample(1:1e3, num_rows, replace = T),
+  value = runif(num_rows, 1, 100)
+)
+
+object.size(df)
+
+chunk_size <- 1e4
+num_chunks <- ceiling(nrow(df) / chunk_size)
+spMxs <- vector("list", num_chunks)
+
+for (i in seq_len(num_chunks)) {
+  chunk <- df[((i - 1) * chunk_size + 1):min(i * chunk_size, nrow(df)), ]
+  
+  spMxs[[i]] <- sparseMatrix(
+    i = chunk$row,
+    j = chunk$col,
+    x = chunk$value,
+    dims = c(1e3, 1e3),
+    giveCsparse = F
+  )
+
+}
+
+spMx <- Reduce(`+`, spMxs)
+
+object.size(spMx)
+
+
+
+mx=as.matrix(spMx)
+
+object.size(mx)
+
+
+
+mx=matrix(0,1e3,1e3)
+
+mx[cbind(df$row,df$col)]=df$value
+
+object.size(mx)
+```
+
+
