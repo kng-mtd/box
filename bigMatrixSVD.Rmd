@@ -1,0 +1,901 @@
+---
+title: "SVD, PCA for bigMatrix"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# **巨大CSVデータをRで特異値分解（SVD）・主成分分析（PCA）**
+
+#密行列形式と疎行列形式の比較
+```{r}
+library(Matrix)
+
+n=20
+r=20
+c=10
+i=sample(1:r,n,replace=T)
+j=sample(1:c,n,replace=T)
+tb=tibble(i=i,j=j) |> unique()
+n0=nrow(tb)
+x=runif(n0,0,1)
+bind_cols(tb,x=x)
+
+mx=matrix(0,nrow=r,ncol=c)
+for(k in 1:n0) mx[tb$i[k],tb$j[k]]=x[k]
+mx
+object.size(mx)
+
+
+spmx=sparseMatrix(i=tb$i,j=tb$j,x=x)
+spmx
+summary(spmx)
+object.size(spmx)
+
+summary(mx-spmx)
+
+
+library(rsvd)
+
+n=100
+m=50
+density=0.1
+
+spmx=rsparsematrix(n,m,density)*10
+print(spmx)
+summary(spmx)
+
+k=30
+
+sv=rsvd(spmx, k)
+print(sv)
+
+amx=sv$u %*% diag(sv$d) %*% t(sv$v)
+
+print(amx)
+
+Matrix(amx,sparse=T) |> summary()
+
+
+heatmap(as.matrix(spmx),Rowv=NA,Colv=NA,scale='none',margins=c(3,3),main='origin')
+heatmap(amx,Rowv=NA,Colv=NA,scale='none',margins=c(3,3),main='approx')
+
+
+
+n=1e6
+r=1e4
+c=1e3
+i=sample(1:r,n,replace=T)
+j=sample(1:c,n,replace=T)
+x=runif(n,0,1)
+
+spmx=sparseMatrix(i=i,j=j,x=x)
+object.size(spmx)
+
+k=30
+
+system.time({
+  sv=rsvd(spmx, k)
+})
+summary(sv)
+object.size(sv)
+
+
+
+
+library(RSpectra)
+library(rsvd)
+
+A=rsparsematrix(r,c, density = 0.1)
+
+system.time({
+  svd_rspectra=svds(A, k = k)
+})
+
+system.time({
+  svd_rsvd=rsvd(A, k = k)
+})
+
+```
+
+
+
+
+巨大なCSVファイル（行、列、値の形式）を作成する
+```{r}
+library(data.table)
+
+#file.remove(file)
+file='big_sparse_mat.csv'
+
+n=1e8 # element not 0
+r=1e4
+c=1e4
+batch=1e6  # batch size
+```
+
+```{r}
+for (i in seq(1, n, by = batch)) {
+  row=sample(1:r, size = batch, replace = T)
+  col=sample(1:c, size = batch, replace = T)
+  val=runif(batch, min = -1, max = 1)
+  df=data.table(row = row, col = col, val = val)
+  
+  fwrite(df, file, quote = FALSE, sep = ",", row.names = FALSE, append = TRUE)
+}
+rm(df)
+```
+
+
+
+
+
+## **疎行列（Sparse Matrix）の場合**
+
+```{r}
+library(Matrix)
+library(RSpectra)
+library(irlba)
+gc()
+
+df=fread(file)  # "row,col,value" 形式
+spmx <- sparseMatrix(i = df$row, j = df$col, x = df$val)
+
+# 固有値分解
+system.time({
+  evd <- eigs(spmx, k = 20)
+})
+
+evd$values  # 固有値
+evd$vectors[1:5,] # 固有ベクトル
+
+
+system.time({
+  svd<-irlba(spmx,20)
+})
+
+svd$d  # 特異値（√固有値、元の行列が共分散行列のときは主成分の分散）
+svd$u[1:5,]  # 左特異ベクトル（対象のk次元特徴量）
+svd$v[1:5,]  # 右特異ベクトル（元の行列が共分散行列のときは主成分負荷量）
+```
+
+
+```{r}
+library(Matrix)
+library(irlba)
+
+gc()
+file='big_sparse_mat.csv'
+df=fread(file)  # "row,col,value" 形式
+sparse_mat=sparseMatrix(i = df$row, j = df$col, x = df$val)
+rm(df)
+
+# 近似 SVD
+system.time({
+  svd=irlba(sparse_mat, nu = 20, nv = 20)
+})
+
+# 主成分得点
+pca_scores=svd$u %*% diag(svd$d)
+```
+
+
+```{r}
+library(Matrix)
+library(RSpectra)
+
+gc()
+df=fread(file)  # "row,col,value" 形式
+sparse_mat=sparseMatrix(i = df$row, j = df$col, x = df$val)
+rm(df)
+
+# 近似SVD
+system.time({
+  svd=svds(sparse_mat, k = 20)
+})
+
+# 主成分得点
+pca_scores=svd$u %*% diag(svd$d)
+```
+
+
+```{r}
+library(Matrix)
+library(rsvd)
+
+gc()
+df=fread(file)  # "row,col,value" 形式
+sparse_mat=sparseMatrix(i = df$row, j = df$col, x = df$val)
+rm(df)
+
+# 近似SVD
+system.time({
+  svd=rsvd(sparse_mat, k = 20)
+})
+
+# 主成分得点
+pca_scores=svd$u %*% diag(svd$d)
+```
+
+
+
+
+#メモリオーバーの行列を特異値分解
+
+密行列の場合、データベース上で正規化、適当な定数倍をして丸めたものを整数型としてから、計算対象のmatrixをつくることで行列のオブジェクトサイズを1/2にする
+```{r}
+library(rsvd)
+
+gc()
+k=4e4
+mx=matrix(as.integer(round(runif(k**2,-1,1)*100)),k,k)
+
+object.size(mx)
+
+# 近似SVD
+system.time({
+  svd=rsvd(mx, k = 20)
+})
+
+# 主成分得点
+pca_scores=svd$u %*% diag(svd$d)
+
+```
+
+
+
+
+```{r}
+library(ff)
+library(bigstatsr)
+library(Matrix)
+library(tidyverse)
+gc()
+
+csv_file <- "big_sparse_mat.csv"
+
+# データを蓄積する変数
+row_id <- c()
+col_id <- c()
+vals <- c()
+
+# チャンクごとに処理する関数
+callback <- function(chunk, pos) {
+  # カラム名を強制設定
+  chunk <- setNames(chunk, c("row", "col", "val"))
+  
+  # NA を削除
+  #chunk <- chunk |> drop_na(row, col, val)
+  
+  # 整数型に変換
+  chunk$row <- as.integer(chunk$row)
+  chunk$col <- as.integer(chunk$col)
+  chunk$val <- as.numeric(chunk$val)
+  
+  # データを蓄積
+  row_id <<- c(row_id, chunk$row)
+  col_id <<- c(col_id, chunk$col)
+  vals <<- c(vals, chunk$val)
+}
+
+# CSV をチャンクごとに処理
+chunk_size <- 1e6
+read_csv_chunked(
+  file = csv_file, 
+  callback = SideEffectChunkCallback$new(callback), 
+  chunk_size = chunk_size, 
+  col_names = T  # ヘッダーを自動認識
+)
+
+
+# 既存のバックファイルを削除
+file.remove("big_matrix.fbm")
+file.remove("big_matrix.fbm.bk")
+
+# FBM（File-backed Big Matrix）を作成
+fbm <- FBM(max(row_id), max(col_id), backingfile = "big_matrix.fbm")
+
+# FBMの行列にデータを格納（sparseMatrixではなく、FBMの内部に格納する）
+for (i in seq_along(vals)) {
+  fbm[row_id[i], col_id[i]] <- vals[i]
+}
+
+# SVD を実行
+svd <- big_randomSVD(fbm, k = 10)
+
+
+svd$d  # 特異値（√固有値、元の行列が共分散行列のときは主成分の分散）
+svd$u[1:5,]  # 左特異ベクトル（対象のk次元特徴量）
+svd$v[1:5,]  # 右特異ベクトル（元の行列が共分散行列のときは主成分負荷量）
+
+saveRDS(svd,'svd_result.rds')
+```
+
+
+
+
+`fbpca` を使って **ランダム化 SVD** を適用する Python コードを示します。  
+この手法は、通常の SVD よりも計算コストが低く、大規模データにも適しています。
+
+---
+
+### **1. `fbpca` を使ったランダム化 SVD**
+```sh
+curl -o miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+bash miniconda.sh
+conda --version
+
+conda update conda
+
+conda create -n env0
+conda env list
+conda activate env0
+conda clean --all
+
+conda install pandas numpy scipy fbpca
+#or
+conda install -c conda-forge fbpca
+#or
+pip install fbpca
+
+conda list
+
+python3 bigmat_fbpca.py
+
+conda deactivate
+conda remove env0 --all
+```
+
+bigmat_fbpca.py
+```python
+import pandas as pd
+import numpy as np
+from scipy.sparse import coo_matrix
+from scipy.sparse.linalg import svds
+
+# Read CSV file in chunks
+csv_file = "big_sparse_mat.csv"
+chunk_size = 10**5
+
+row_list, col_list, val_list = [], [], []
+
+for chunk in pd.read_csv(csv_file, chunksize=chunk_size, names=["row", "col", "val"], header=0):
+    chunk.dropna(subset=["row", "col", "val"], inplace=True)  # Remove NA values
+    row_list.append(chunk["row"].to_numpy(dtype=int))
+    col_list.append(chunk["col"].to_numpy(dtype=int))
+    val_list.append(chunk["val"].to_numpy(dtype=float))
+
+# Concatenate lists into NumPy arrays (improves performance)
+row_ids = np.concatenate(row_list)
+col_ids = np.concatenate(col_list)
+values = np.concatenate(val_list)
+
+# Determine matrix size (get max indices)
+n_rows, n_cols = row_ids.max() + 1, col_ids.max() + 1
+
+# Create sparse matrix (COO format)
+sparse_matrix = coo_matrix((values, (row_ids, col_ids)), shape=(n_rows, n_cols))
+
+# Perform sparse SVD (k=10, memory-efficient)
+U, S, Vt = svds(sparse_matrix, k=10)
+
+# Display results
+print("Singular values:", S)
+print("Left singular vectors (first 5 rows):\n", U[:5, :])
+print("Right singular vectors (first 5 columns):\n", Vt
+
+```
+
+---
+
+### **2. `fbpca.pca()` の仕組み**
+`fbpca` は、ランダム化アルゴリズムを用いた SVD を実行し、  
+従来の厳密な SVD より **メモリ効率が良く、高速** です。
+
+✅ **メリット**
+- **通常の SVD よりも速い**（ランダム化により計算量を削減）
+- **スパース行列に対応**
+- **メモリ消費を抑えられる**
+
+
+---
+
+
+
+
+逐次的PCA（オンラインPCA）や逐次的SVD（オンラインSVD）をRで行う方法はいくつかあります。一般的な方法として、以下のライブラリが利用できます。
+
+### 1. **逐次的PCA（オンラインPCA）**
+オンラインPCAはデータが逐次的に与えられる場合でも主成分分析を更新できる方法です。Rでは `onlinePCA` パッケージが便利です。
+
+#### **方法1: `onlinePCA` パッケージを使う**
+
+https://cran.r-universe.dev/onlinePCA
+https://www.academia.edu/9900402/R_package_onlinePCA_Online_Principal_Component_Analysis
+
+
+batchpca	Batch PCA
+bsoipca	Block Stochastic Orthononal Iteration (BSOI)
+ccipca	Candid Covariance-Free Incremental PCA
+ghapca	Generalized Hebbian Algorithm for PCA
+impute	BLUP Imputation of Missing Values
+incRpca	Incremental PCA
+incRpca.block	Incremental PCA with Block Update
+incRpca.rc	Incremental PCA With Reduced Complexity
+perturbationRpca	Recursive PCA using a rank 1 perturbation method
+secularRpca	Recursive PCA Using Secular Equations
+sgapca	Stochastic Gradient Ascent PCA
+snlpca	Subspace Network Learning PCA
+
+
+
+
+これらは、逐次的またはインクリメンタルな PCA（主成分分析）の異なるアルゴリズムや手法です。それぞれについて簡単に説明します。
+
+### 1. **Recursive PCA using a rank 1 perturbation method**
+   - この方法では、PCAを更新するために、行列のランク1の摂動（変化）を使用します。新しいデータポイントが与えられるたびに、ランク1の更新を加えてPCAの主成分を再計算します。この方法は、主成分を効率的に更新することができ、メモリ消費が少なく、リアルタイムのデータ更新に適しています。
+
+### 2. **Recursive PCA Using Secular Equations**
+   - この方法は、逐次的なPCAを行うために「世俗方程式（Secular Equations）」を使用します。世俗方程式は、行列の固有値と固有ベクトルを再計算するための方程式であり、データが逐次的に追加されるたびにPCAの更新を行います。これにより、以前の計算結果を保存しつつ、効率的に更新を行うことができます。
+
+### 3. **Incremental PCA**
+   - インクリメンタルPCAは、通常のPCAと異なり、データを一度にすべて処理するのではなく、データをバッチごとに処理します。インクリメンタルPCAは、データが非常に大きい場合やメモリに収まりきらない場合に便利です。データの各バッチごとにPCAを更新し、計算リソースを節約します。
+
+### 4. **Incremental PCA with Block Update**
+   - ブロック更新を使用したインクリメンタルPCAは、データを複数のブロックに分けて処理します。各ブロックごとにPCAを更新し、全体の更新を効率的に行います。この方法では、データの更新をより大きなブロック単位で行うため、計算効率が向上する場合があります。
+
+### 5. **Incremental PCA With Reduced Complexity**
+   - 複雑性を削減したインクリメンタルPCAは、通常のインクリメンタルPCAよりも計算量を減らすことを目指した手法です。特に高次元のデータに対して、計算の効率化を図るための方法が含まれます。これにより、計算リソースをより少なくしてPCAを更新できます。
+
+### 6. **Block Stochastic Orthogonal Iteration (BSOI)**
+   - BSOIは、確率的なブロック更新を用いてPCAを計算する手法です。データをブロック単位で分割し、各ブロックの主成分を計算します。この方法は、特に大規模なデータセットに対して効果的であり、確率的な手法を用いることで、計算の精度を保ちながら効率的に主成分を求めます。
+
+### 7. **Candid Covariance-Free Incremental PCA**
+   - この方法は、共分散行列を計算することなくインクリメンタルPCAを実行する手法です。共分散行列の計算を省略することで、計算量を削減し、メモリ消費を少なくすることができます。この方法は、大規模なデータセットに対しても適用可能です。
+
+### 8. **Generalized Hebbian Algorithm for PCA**
+   - このアルゴリズムは、PCAを求めるための逐次的な学習アルゴリズムであり、ニューラルネットワークで一般的に使用されるヘブ学習法を基にしています。主成分を学習するために、データの自己組織化を利用して更新を行います。この手法は、データの自己組織化を利用して効率的にPCAを更新します。
+
+### 9. **Stochastic Gradient Ascent PCA**
+   - 確率的勾配上昇法を使用してPCAを求める手法です。通常、PCAの計算には固有値分解が必要ですが、この手法では勾配上昇法を使って逐次的に主成分を求めることができます。確率的な更新を用いるため、大規模データに対しても適応できるのが特徴です。
+
+### 10. **Subspace Network Learning PCA**
+   - サブスペースネットワーク学習は、ニューラルネットワークに基づいたPCAの学習法です。ネットワークを用いてデータの低次元表現を学習し、主成分を逐次的に更新します。この手法は、データの非線形性を扱うことができるため、PCAの線形性を拡張することができます。
+
+### 11. **BLUP Imputation of Missing Values**
+   - BLUP（Best Linear Unbiased Prediction）法を用いて、欠損値を補完する手法です。PCAのような線形モデルを使って、欠損しているデータポイントを予測し補完します。これにより、欠損データがある場合でもPCAを実行できます。
+
+### 12. **Batch PCA**
+   - バッチPCAは、データを一度にすべて処理する通常のPCAの方法です。インクリメンタルPCAとは異なり、データを一括で処理するため、メモリに収まるデータセットに対して効率的に主成分を計算します。データ全体を処理することで、最も正確な結果を得ることができますが、データサイズが大きくなると計算資源を大量に消費することがあります。
+
+これらのアルゴリズムや手法は、データの特性や計算リソースに応じて使い分けることができ、逐次的なデータ解析や大規模データセットに対するPCAの計算を効率的に行うために役立ちます。
+
+
+これらのPCAアルゴリズムの中で「高速な順序」は、アルゴリズムの実行速度と計算リソースの効率性に依存します。一般的に、高速な順序は、アルゴリズムがどれだけ効率的に計算できるか、メモリをどれだけ節約できるか、そしてアルゴリズムがどれだけシンプルに実行できるかに関係しています。以下に、高速な順序を示すために、各手法を簡単に評価します。
+
+### 高速な順序（上位）：
+1. **Incremental PCA**
+   - バッチごとに逐次的に計算するため、メモリ消費が少なく、大規模データセットに対して高速です。特に計算リソースを節約するために有効です。
+   
+2. **Incremental PCA with Block Update**
+   - 「インクリメンタルPCA」のバージョンであり、データを大きなブロックで処理することで、計算効率がさらに向上します。特に大規模データセットで有利です。
+
+3. **Candid Covariance-Free Incremental PCA**
+   - 共分散行列を計算せずに逐次的にPCAを更新するため、計算量を削減し、メモリの使用量も抑えることができ、高速です。
+
+4. **Block Stochastic Orthogonal Iteration (BSOI)**
+   - 確率的なブロック更新を用いるため、効率的に大規模データセットに対応でき、高速に主成分を求めることができます。
+
+### 中程度の順序：
+5. **Recursive PCA using a rank 1 perturbation method**
+   - ランク1の摂動を用いるため、逐次的なPCA更新は比較的高速ですが、更新方法や状況に応じて他の手法に遅れを取ることもあります。
+
+6. **Recursive PCA Using Secular Equations**
+   - 世俗方程式を用いた逐次更新は、比較的計算が複雑であり、効率性に欠ける場合がありますが、メモリの消費を抑えながら精度を保つことができます。
+
+7. **Stochastic Gradient Ascent PCA**
+   - 確率的勾配上昇法を使用することで、計算を逐次的に行いますが、収束速度が遅い場合があるため、高速ではないことがあります。
+
+### より遅い順序（一般的に計算リソースが多く必要）：
+8. **Generalized Hebbian Algorithm for PCA**
+   - ニューラルネットワークに基づくアルゴリズムは通常、計算が遅くなることがあります。特に、更新が反復的であるため、高速とは言えません。
+
+9. **Subspace Network Learning PCA**
+   - サブスペースネットワークの学習は、非線形性を処理するために複雑なニューラルネットワークを使用するため、計算が遅くなる可能性があります。
+
+10. **BLUP Imputation of Missing Values**
+    - 欠損値補完を行う場合、BLUP法は他の手法と比較して計算量が多く、遅くなる可能性があります。欠損値補完のためには追加の計算リソースが必要です。
+
+11. **Batch PCA**
+    - バッチPCAはデータを一度にすべて処理するため、大規模データに対してはメモリと計算資源を大量に消費します。そのため、高速とは言えません。
+
+
+
+```{r}
+library(onlinePCA)
+
+n=1e4
+d=100
+q=10
+
+x=matrix(rnorm(n*d,1,2),n,d)
+
+# conventional strict PCA from data matrix with prcomp
+system.time({pca0=prcomp(x,scale.=T)})
+
+pca0$sdev[1:q]^2
+pca0$rotation[1:5,1:q]
+
+# conventional strict PCA from correlation matrix matrix with eigen
+system.time({pca1=eigen(cor(x))})
+
+pca1$values[1:q]
+pca1$vectors[1:5,1:q]
+
+# approximated PCA from data matrix with batch PCA
+system.time({pca2=batchpca(scale(x,scale=T),q,byrow=T)})
+
+pca2$values
+pca2$vectors[1:5,1:q]
+
+# approximated PCA from correlation matrix with batch PCA
+system.time({pca3=batchpca(cor(x),q,type='covariance')})
+
+pca3$values
+pca3$vectors[1:5,1:q]
+
+
+
+# Incremental PCA (IPCA, centered), add one by one row
+x0=scale(x)
+n1=5e3 #initial rows
+
+pca=prcomp(x0[1:n1,])
+m=pca$center
+pca=list(values=pca$sdev[1:q]^2, vectors=pca$rotation[,1:q])
+
+for(i in (n1+1):n){
+  m=updateMean(m,x0[i,],i-1)
+  pca=incRpca(pca$values, pca$vectors, x0[i,], i-1, q=q, center=m)
+}
+
+pca$values
+pca$vectors[1:5,1:q]
+```
+
+
+```{r}
+tb0=penguins |>
+  drop_na() |>
+  mutate(year=as.factor(year))
+
+tb=model.matrix(~.,tb0)[,-1]
+
+q=5
+
+pca0=prcomp(tb,scale.=T)
+pca0$sdev[1:q]^2
+pca0$rotation[,1:q]
+
+pca1=eigen(cor(tb))
+pca1$values
+pca1$vectors[1:5,1:q]
+
+pca2=batchpca(scale(tb,scale=T),q,byrow=T)
+pca2$values
+pca2$vectors[,1:q]
+
+pca3=batchpca(cor(tb),q,type='covariance')
+pca3$values
+pca3$vectors[1:5,1:q]
+
+
+tb0=scale(tb)
+n=nrow(tb0)
+n1=200 #initial rows
+
+pca=prcomp(tb0[1:n1,])
+m=pca$center
+pca=list(values=pca$sdev[1:q]^2, vectors=pca$rotation[,1:q])
+
+for(i in (n1+1):n){
+  m=updateMean(m,tb0[i,],i-1)
+  pca=incRpca(pca$values, pca$vectors, tb0[i,], i-1, q=q, center=m)
+}
+
+pca$values
+pca$vectors[,1:q]
+```
+
+
+
+---
+
+### 2. **逐次的SVD（オンラインSVD）**
+オンラインSVDは特に大規模データに対して有効です。Rでは `irlba` パッケージや `softImpute` パッケージが利用できます。
+
+#### **方法1: `irlba` を使う**
+`irlba` は特異値分解（SVD）の近似計算を提供します。
+#### **ステップ1: 初期データでSVDを計算**
+```r
+install.packages("irlba")
+library(irlba)
+
+# 初期データ（行列）
+set.seed(123)
+X <- matrix(rnorm(100 * 10), nrow=100, ncol=10)  # 100行10列のデータ
+
+# SVDの初期計算 (上位3つの特異値・特異ベクトル)
+k <- 3
+svd_result <- irlba(X, nv=k)
+
+# 初期の左特異ベクトル、特異値、右特異ベクトル
+U <- svd_result$u
+D <- diag(svd_result$d)
+V <- svd_result$v
+```
+#### **ステップ2: 新しいデータを追加しながらSVDを更新**
+```r
+# 新しいデータブロック (10行10列)
+new_data <- matrix(rnorm(10 * 10), nrow=10, ncol=10)
+
+# 既存データ行列に追加
+X_new <- rbind(X, new_data)
+
+# 再計算（全体を再計算する方法）
+svd_result <- irlba(X_new, nv=k)
+
+# 更新後の左特異ベクトル、特異値、右特異ベクトル
+U_new <- svd_result$u
+D_new <- diag(svd_result$d)
+V_new <- svd_result$v
+```
+
+
+#### **方法2: `softImpute` を使う**
+行列の欠損値補完向けですが、逐次的なSVDにも使えます。
+```r
+install.packages("softImpute")
+library(softImpute)
+
+# 初期データ
+X <- matrix(rnorm(100 * 10), nrow=100, ncol=10)
+
+# 初期のSVD（ランク3までの近似）
+svd_result <- softImpute(X, rank.max=3, lambda=0)
+
+# 新しいデータ（追加）
+new_data <- matrix(rnorm(10 * 10), nrow=10, ncol=10)
+X_new <- rbind(X, new_data)
+
+# 低ランク近似を維持しつつ再計算
+svd_result_new <- softImpute(X_new, rank.max=3, lambda=0)
+```
+
+
+
+
+
+## **🔹 逐次的（インクリメンタル）rSVD の考え方**
+通常の `rsvd()` はデータ全体を一括処理するので、**新しいデータを追加するたびに全データで計算し直す必要があります**。  
+しかし、以下の手法を用いれば、**少ない計算量でSVDを更新** できます。
+
+---
+
+### **方法1: 近似的にrSVDを更新**
+
+```r
+library(rsvd)
+
+update_rsvd <- function(rsvd_result, new_data, k=50) {
+  # 既存の特異値分解結果
+  U_old <- rsvd_result$u
+  D_old <- diag(rsvd_result$d)
+  V_old <- rsvd_result$v
+  
+  # 既存データを近似再構築
+  X_approx <- U_old %*% D_old
+  
+  # 新データを追加
+  X_updated <- rbind(X_approx, new_data)
+  
+  # 再びrSVDを適用
+  new_rsvd_result <- rsvd(X_updated, k=k)
+  
+  return(new_rsvd_result)
+}
+
+# ランダムなデータ行列
+set.seed(123)
+X <- matrix(rnorm(1000 * 500), nrow=1000, ncol=500)
+
+# 初回のrSVD
+rsvd_result <- rsvd(X, k=50)
+
+# 新しいデータのブロックを追加
+new_data <- matrix(rnorm(100 * 500), nrow=100, ncol=500)
+rsvd_result <- update_rsvd(rsvd_result, new_data, k=50)
+```
+
+1. 既存のSVD (`U D V^T`) で近似行列 `X_approx` を作成。
+2. そこに新しいデータ `new_data` を結合 (`rbind`)。
+3. 新しい `X_updated` に対して `rsvd()` を適用し、新しいSVDを取得。
+
+全データを保存せず、低ランク近似を活用して効率的に更新  
+完全なSVDの再計算よりも速い  
+大規模データに対して使いやすい  
+
+---
+
+### **方法2: `irlba()` を用いた逐次的SVD**
+もし `rsvd` ではなく **`irlba`** を使う場合、よりメモリ効率の良い **逐次SVD（Incremental SVD）** の計算が可能です。
+
+```r
+library(irlba)
+
+update_irlba <- function(irlba_result, new_data, k=50) {
+  # 既存の特異値分解結果
+  U_old <- irlba_result$u
+  D_old <- diag(irlba_result$d)
+  V_old <- irlba_result$v
+  
+  # 近似再構築
+  X_approx <- U_old %*% D_old
+  
+  # 新データを追加
+  X_updated <- rbind(X_approx, new_data)
+  
+  # 再びSVDを適用
+  new_irlba_result <- irlba(X_updated, nv=k)
+  
+  return(new_irlba_result)
+}
+
+# 初回のSVD
+irlba_result <- irlba(X, nv=50)
+
+# 新データのブロックを追加
+irlba_result <- update_irlba(irlba_result, new_data, k=50)
+```
+`irlba` は `rsvd` よりも厳密な低ランク近似を求めるのに向いています。
+
+
+
+
+
+Ubuntu上のRで **rSVD（ランダム化特異値分解）** の計算を高速化するための方法。  
+BLASの並列化やOpenMPの最適化を組み合わせることで、計算を大幅に高速化。
+
+---
+
+## **1. BLAS（OpenBLAS / MKL）の並列化**
+RのデフォルトBLASは並列化されていないため、**マルチスレッド対応のBLASを使用** することで行列演算を高速化できます。
+
+### **(1) OpenBLAS の導入**
+```bash
+sudo apt update
+sudo apt install -y libopenblas-dev
+```
+#### **OpenBLASをRのBLASに設定**
+```bash
+cd /usr/lib/R/lib
+sudo mv libRblas.so libRblas.so.bak  # 元のBLASをバックアップ
+sudo ln -s /usr/lib/x86_64-linux-gnu/openblas/libopenblas.so libRblas.so
+```
+BLASの並列スレッド数を設定：
+```bash
+export OPENBLAS_NUM_THREADS=4  # 4スレッド使用
+```
+または、R内で設定：
+```r
+library(RhpcBLASctl)
+blas_set_num_threads(4)  # 4スレッドでBLASを並列化
+```
+
+### **(2) Intel MKL を使用（より高速）**
+Intelの **MKL（Math Kernel Library）** は、OpenBLASより高速なことが多いです。
+
+#### **MKL のインストール**
+```bash
+sudo apt install -y intel-mkl
+```
+#### **MKLをRのBLASに設定**
+```bash
+cd /usr/lib/R/lib
+sudo mv libRblas.so libRblas.so.bak
+sudo ln -s /opt/intel/mkl/lib/intel64/libmkl_rt.so libRblas.so
+```
+MKLのスレッド設定：
+```bash
+export MKL_NUM_THREADS=4
+export OMP_NUM_THREADS=4
+```
+R内での確認：
+```r
+library(RhpcBLASctl)
+blas_get_num_procs()  # 使用されるスレッド数を確認
+```
+
+---
+
+## **2. OpenMP を活用**
+BLASの並列化に加え、**OpenMP** を活用するとさらなる高速化が可能です。
+
+環境変数で設定：
+```bash
+export OMP_NUM_THREADS=4
+```
+R内で設定：
+```r
+library(RhpcBLASctl)
+omp_set_num_threads(4)  # OpenMP スレッド数を4に設定
+```
+
+---
+
+
+## **3. 並列処理 (`parallel` や `future` パッケージ)**
+### **(1) `future` パッケージで並列実行**
+```r
+install.packages("future.apply")
+library(future.apply)
+
+plan(multicore, workers = 4)  # 4スレッドで並列実行
+rsvd_result <- future_lapply(1:4, function(x) rsvd(A, k = 10))
+```
+この方法を使えば、複数の `rSVD` 計算を並列実行できます。
+
+
+
+```
+library(Matrix)
+library(rsvd)
+library(RhpcBLASctl)
+
+extSoftVersion()["BLAS"]
+
+blas_set_num_threads(1)
+omp_set_num_threads(1)
+
+# see the number of thread
+blas_get_num_procs()
+
+gc()
+df=fread(file)  # "row,col,value" 形式
+sparse_mat=sparseMatrix(i = df$row, j = df$col, x = df$val)
+rm(df)
+
+# 近似SVD
+system.time({
+  svd=rsvd(sparse_mat, k = 20)
+})
+
+# 主成分得点
+pca_scores=svd$u %*% diag(svd$d)
+```
+
+```
+library(Matrix)
+library(rsvd)
+library(RhpcBLASctl)
+
+extSoftVersion()["BLAS"]
+
+blas_set_num_threads(4)
+omp_set_num_threads(1)
+
+# see the number of thread
+blas_get_num_procs()
+
+gc()
+df=fread(file)  # "row,col,value" 形式
+sparse_mat=sparseMatrix(i = df$row, j = df$col, x = df$val)
+rm(df)
+
+system.time({
+  svd=rsvd(sparse_mat, k = 20, q=1)
+})
+```
