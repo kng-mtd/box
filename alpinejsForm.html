@@ -1,0 +1,145 @@
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>HTML-template</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- Google Fonts -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic" />
+    <!-- CSS Reset -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css" />
+    <!-- Milligram CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css" />
+    <style>
+      header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        background: #111;
+        border-bottom: 1px solid gray;
+        text-align: center;
+        /* padding: 0.5rem; */
+      }
+
+      footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        background: #111;
+        border-top: 1px solid gray;
+        text-align: center;
+        /* padding: 0.5rem; */
+      }
+
+      main {
+        /* position: relative; */
+        margin-top: 30px;
+        margin-bottom: 30px;
+        padding: 1rem;
+        transition: margin-left 0.3s ease;
+      }
+
+      .sidebar {
+        position: fixed;
+        top: 30px;
+        bottom: 30px;
+        left: 0;
+        width: 200px;
+        background: #eee;
+        padding: 1rem;
+        overflow-y: auto;
+      }
+
+      .sidebar.bg-black {
+        background: #111;
+      }
+
+      [x-cloak] {
+        display: none !important;
+      }
+
+      .bg-black {
+        background: black;
+      }
+
+      .button-small {
+        font-size: 1rem;
+        height: 2rem;
+        line-height: 2rem;
+        padding: 0 1rem;
+      }
+    </style>
+  </head>
+
+  <body
+    x-data="{ dark: false, sidebarOpen: true }"
+    :class="{ 'bg-black': dark }"
+    style="transition: background-color 0.3s, color 0.3s"
+  >
+    <header>
+      header
+      <button class="button-small button-outline" @click="sidebarOpen = !sidebarOpen">
+        <span x-text="sidebarOpen ? '◀' : '▶'"></span>
+      </button>
+      <a href="#">Link 1</a>
+      <a href="#">Link 2</a>
+      <a href="#">Link 3</a>
+      <button class="button-small button-outline" @click="dark = !dark">
+        <span x-text="dark ? '🌙' : '☀'"></span>
+      </button>
+    </header>
+
+    <aside class="sidebar" x-show="sidebarOpen" x-cloak :class="{ 'bg-black': dark }">
+      sidebar
+      <ul>
+        <li><a href="#">Link1</a></li>
+        <li><a href="#">Link2</a></li>
+        <li><a href="#">Link3</a></li>
+      </ul>
+    </aside>
+
+    <main :style="{ marginLeft: sidebarOpen ? '200px' : '0' }">
+      <p>container</p>
+      <div class="row">
+        <p>row1</p>
+        <div class="column">
+          <p>column11</p>
+          <p>a</p>
+          <p>b</p>
+          <p>c</p>
+          <p>d</p>
+          <p>e</p>
+        </div>
+        <div class="column">
+          <p>column12</p>
+        </div>
+      </div>
+
+      <div class="row">
+        <p>row2</p>
+        <div class="column">
+          <p>column21</p>
+          <p>a</p>
+          <p>b</p>
+          <p>c</p>
+          <p>d</p>
+          <p>e</p>
+        </div>
+        <div class="column">
+          <p>column22</p>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      footer
+      <a href="#">Link 1</a>
+      <a href="#">Link 2</a>
+      <a href="#">Link 3</a>
+    </footer>
+  </body>
+</html>
