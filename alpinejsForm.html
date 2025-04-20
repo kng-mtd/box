@@ -2,21 +2,48 @@
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>HTML-template</title>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"
+    ></script>
 
     <!-- Google Fonts -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic"
+    />
     <!-- CSS Reset -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css"
+    />
     <!-- Milligram CSS -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/milligram/1.4.1/milligram.css"
+    />
     <style>
+      [x-cloak] {
+        display: none !important;
+      }
+
+      .bg-black {
+        background: black;
+        color: white;
+      }
+
+      .bg-white {
+        background: white;
+        color: black;
+      }
+
       header {
         position: fixed;
         top: 0;
         left: 0;
         right: 0;
         z-index: 100;
+        color: #eee;
         background: #111;
         border-bottom: 1px solid gray;
         text-align: center;
@@ -29,6 +56,7 @@
         left: 0;
         right: 0;
         z-index: 100;
+        color: #eee;
         background: #111;
         border-top: 1px solid gray;
         text-align: center;
@@ -52,22 +80,15 @@
         background: #eee;
         padding: 1rem;
         overflow-y: auto;
+        transition: opacity 0.3s ease;
       }
 
       .sidebar.bg-black {
         background: #111;
       }
 
-      [x-cloak] {
-        display: none !important;
-      }
-
-      .bg-black {
-        background: black;
-      }
-
       .button-small {
-        font-size: 1rem;
+        font-size: 1.5rem;
         height: 2rem;
         line-height: 2rem;
         padding: 0 1rem;
@@ -77,12 +98,15 @@
 
   <body
     x-data="{ dark: false, sidebarOpen: true }"
-    :class="{ 'bg-black': dark }"
-    style="transition: background-color 0.3s, color 0.3s"
+    :class="dark ? 'bg-black' : 'bg-white'"
+    style="transition: background 0.3s, color 0.3s"
   >
     <header>
       header
-      <button class="button-small button-outline" @click="sidebarOpen = !sidebarOpen">
+      <button
+        class="button-small button-outline"
+        @click="sidebarOpen = !sidebarOpen"
+      >
         <span x-text="sidebarOpen ? '◀' : '▶'"></span>
       </button>
       <a href="#">Link 1</a>
@@ -93,7 +117,12 @@
       </button>
     </header>
 
-    <aside class="sidebar" x-show="sidebarOpen" x-cloak :class="{ 'bg-black': dark }">
+    <aside
+      class="sidebar"
+      x-show="sidebarOpen"
+      :class="{ 'bg-black': dark }"
+      x-transition
+    >
       sidebar
       <ul>
         <li><a href="#">Link1</a></li>
@@ -108,6 +137,7 @@
         <p>row1</p>
         <div class="column">
           <p>column11</p>
+          <button>button</button>
           <p>a</p>
           <p>b</p>
           <p>c</p>
@@ -123,6 +153,7 @@
         <p>row2</p>
         <div class="column">
           <p>column21</p>
+          <button>button</button>
           <p>a</p>
           <p>b</p>
           <p>c</p>
