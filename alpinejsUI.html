@@ -23,11 +23,11 @@
         }
     </style>
 
-<body x-data="{ dark: false }" :class="{ 'dark-mode': dark }">
+<body x-data="{ dark: false }" :class="{ 'dark-mode': dark }" class='container'>
 
-  <button @click="dark = !dark">Toggle Dark Mode</button>
-    <p>Current Mode: <span x-text="dark ? 'Dark' : 'Light'"></span></p>
-
+  <button @click="dark = !dark">Toggle Dark with button</button>
+  <a href="#" @click.prevent="dark = !dark"> <span x-text="dark ? '🌗 Light' : '🌓 Dark'"></span></a>
+ 
 
   <div x-data="{ open: false }">
     <button @click="open = true">open</button>
@@ -124,3 +124,5 @@
     <button x-show="show" @click="window.scrollTo({ top: 0, behavior: 'smooth' })">To the top</button>
   </div>
 
+</body>
+</html>

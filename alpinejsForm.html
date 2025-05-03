@@ -112,9 +112,12 @@
       <a href="#">Link 1</a>
       <a href="#">Link 2</a>
       <a href="#">Link 3</a>
-      <button class="button-small button-outline" @click="dark = !dark">
+      <a href="#" @click.prevent="dark = !dark">
+        <span x-text="dark ? '🌗' : '🌓'"></span
+      ></a>
+      <!-- <button class="button-small button-outline" @click="dark = !dark">
         <span x-text="dark ? '🌙' : '☀'"></span>
-      </button>
+      </button> -->
     </header>
 
     <aside
