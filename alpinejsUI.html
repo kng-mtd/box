@@ -26,8 +26,7 @@
 <body x-data="{ dark: false }" :class="{ 'dark-mode': dark }" class='container'>
 
   <button @click="dark = !dark">Toggle Dark with button</button>
-  <a href="#" @click.prevent="dark = !dark"> <span x-text="dark ? '🌗 Light' : '🌓 Dark'"></span></a>
- 
+  <a href="#" @click.prevent="dark = !dark" x-text="dark ? '◑' : '◐'"></a>
 
   <div x-data="{ open: false }">
     <button @click="open = true">open</button>
