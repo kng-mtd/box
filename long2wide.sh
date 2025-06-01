@@ -8,53 +8,57 @@
 inputFile="${1:-long.csv}"
 outputFile="${2:-wide.csv}"
 
-# Check if input file exists
 if [ ! -f "$inputFile" ]; then
-  echo "The specified input file was not found: $inputFile"
+  echo "Input file not found: $inputFile"
   exit 1
 fi
 
-# Prepare headers and data
-declare -A headers
+# Use associative arrays to store values
 declare -A dataMap
-idList=()
+declare -A idSeen
+declare -A keySeen
 
-# Read the input CSV file
-while IFS=',' read -r id key value; do
-  if [[ "$id" == "id" ]]; then
-    continue # Skip header row
+idList=()
+keyList=()
+
+# Read file
+while IFS=',' read -r id key val; do
+  if [[ "$id" == "id" && "$key" == "x" && "$val" == "val" ]]; then
+    continue
   fi
 
-  # Collect headers (create a list of keys)
-  headers["$key"]=1
-
-  # Store data for each id
-  dataMap["$id,$key"]="$value"
-
-  # Add id to idList
-  if [[ ! " ${idList[@]} " =~ " ${id} " ]]; then
+  # Keep track of unique ids in order
+  if [[ -z "${idSeen[$id]}" ]]; then
+    idSeen[$id]=1
     idList+=("$id")
   fi
+
+  # Keep track of unique keys in order
+  if [[ -z "${keySeen[$key]}" ]]; then
+    keySeen[$key]=1
+    keyList+=("$key")
+  fi
+
+  dataMap["$id,$key"]="$val"
 done < "$inputFile"
 
-# Create header row (maintaining the order of keys)
-headerRow="id"
-headerKeys=()
-for key in "${!headers[@]}"; do
-  headerRow+=",${key}"
-  headerKeys+=("$key")
-done
-
-# Write the header row to the output file
-echo "$headerRow" > "$outputFile"
-
-# Create data rows for each id
-for id in "${idList[@]}"; do
-  row="$id"
-  for key in "${headerKeys[@]}"; do
-    row+=",${dataMap["$id,$key"]}"
+# Write header
+{
+  printf "id"
+  for key in "${keyList[@]}"; do
+    printf ",%s" "$key"
   done
-  echo "$row" >> "$outputFile"
+  printf "\n"
+} > "$outputFile"
+
+# Write each row
+for id in "${idList[@]}"; do
+  printf "%s" "$id" >> "$outputFile"
+  for key in "${keyList[@]}"; do
+    val="${dataMap["$id,$key"]}"
+    printf ",%s" "$val" >> "$outputFile"
+  done
+  printf "\n" >> "$outputFile"
 done
 
 echo "Conversion completed. Output file: $outputFile"
