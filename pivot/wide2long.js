@@ -1,12 +1,13 @@
-// FileSystemObjectの作成
+// first column is fixed
+// cscript wide2long.js wide.csv long.csv
+
+
 var fso = new ActiveXObject("Scripting.FileSystemObject");
 
-// コマンドライン引数の処理
 var args = WScript.Arguments;
 var inputFile = args.length > 0 ? args(0) : "wide.csv";
 var outputFile = args.length > 1 ? args(1) : "long.csv";
 
-// CSVファイルの読み込み
 function readCSV(filePath) {
     if (!fso.FileExists(filePath)) {
         throw new Error("Not found the file: " + filePath);
@@ -20,7 +21,6 @@ function readCSV(filePath) {
     return data;
 }
 
-// CSVファイルの書き込み
 function writeCSV(filePath, data) {
     var file = fso.OpenTextFile(filePath, 2, true); // 2 = ForWriting, true = Create if not exists
     for (var i = 0; i < data.length; i++) {
@@ -29,13 +29,12 @@ function writeCSV(filePath, data) {
     file.Close();
 }
 
-// 横持ちから縦持ちに変換
+
 function transformCSV(inputData) {
     var rows = inputData;
-    var headers = rows[0].split(","); // ヘッダー行を分割
-    var result = ["id,x,val"]; // 出力用のヘッダー
+    var headers = rows[0].split(","); // split original header
+    var result = ["id,x,val"]; // new header
 
-    // 各行を処理
     for (var i = 1; i < rows.length; i++) {
         var cols = rows[i].split(",");
         var id = cols[0];
@@ -47,7 +46,6 @@ function transformCSV(inputData) {
     return result;
 }
 
-// メイン処理
 try {
     WScript.Echo("input file: " + inputFile);
     WScript.Echo("output file: " + outputFile);

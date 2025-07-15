@@ -1,12 +1,13 @@
-// FileSystemObject の作成
+// for multi fixed column
+// cscript wide2long2.js wide.csv long.csv 0,1 > column 0,1 is fixed
+
+
 var fso = new ActiveXObject("Scripting.FileSystemObject");
 
-// コマンドライン引数の処理
 var args = WScript.Arguments;
 var inputFile = args.length > 0 ? args(0) : "wide.csv";
 var outputFile = args.length > 1 ? args(1) : "long.csv";
 
-// 固定列のインデックス（0始まり、カンマ区切り）
 var fixedIndexes = [];
 if (args.length > 2) {
     var parts = args(2).split(",");
@@ -14,10 +15,9 @@ if (args.length > 2) {
         fixedIndexes.push(parseInt(parts[i], 10));
     }
 } else {
-    fixedIndexes = [0]; // デフォルトで最初の列（0番目）を固定
+    fixedIndexes = [0]; // first column is fixed as defalut
 }
 
-// includes の代替関数（JScriptに indexOf がないため）
 function includes(arr, val) {
     for (var i = 0; i < arr.length; i++) {
         if (arr[i] === val) return true;
@@ -25,7 +25,6 @@ function includes(arr, val) {
     return false;
 }
 
-// CSVファイルの読み込み
 function readCSV(filePath) {
     if (!fso.FileExists(filePath)) {
         throw new Error("Not found the file: " + filePath);
@@ -39,7 +38,6 @@ function readCSV(filePath) {
     return data;
 }
 
-// CSVファイルの書き込み
 function writeCSV(filePath, data) {
     var file = fso.OpenTextFile(filePath, 2, true); // 2 = ForWriting, true = Create if not exists
     for (var i = 0; i < data.length; i++) {
@@ -48,13 +46,12 @@ function writeCSV(filePath, data) {
     file.Close();
 }
 
-// 横持ちから縦持ちに変換
 function transformCSV(inputData, fixedIndexes) {
     var rows = inputData;
     var headers = rows[0].split(",");
     var result = [];
 
-    // 固定列ヘッダーの抽出
+    // fixed column header
     var fixedHeaders = [];
     for (var i = 0; i < fixedIndexes.length; i++) {
         var idx = fixedIndexes[i];
@@ -64,10 +61,9 @@ function transformCSV(inputData, fixedIndexes) {
         fixedHeaders.push(headers[idx]);
     }
 
-    // 出力ヘッダー作成
+    // new header
     result.push(fixedHeaders.join(",") + ",x,val");
 
-    // データ行の処理
     for (var i = 1; i < rows.length; i++) {
         var cols = rows[i].split(",");
         var fixedValues = [];
@@ -85,7 +81,6 @@ function transformCSV(inputData, fixedIndexes) {
     return result;
 }
 
-// メイン処理
 try {
     WScript.Echo("Input file: " + inputFile);
     WScript.Echo("Output file: " + outputFile);
