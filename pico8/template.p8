@@ -1,0 +1,92 @@
+pico-8 cartridge // http://www.pico-8.com
+version 43
+__lua__
+--init
+
+function _init()
+	init_menu()
+end
+
+
+function init_menu()
+	_update=update_menu
+	_draw=draw_menu
+	
+	menus={
+    'start game',
+    'option',
+    'restart'
+ }
+ menui=1
+	
+end
+
+
+function init_option()
+--
+end
+
+
+function init_game()
+	_update=update_game
+	_draw=draw_game
+	
+--set variable
+
+end
+
+
+
+-->8
+--update
+
+function update_menu()
+ --if(btnp(🅾️)) init_game()
+ 
+ if(btnp(⬆️)) menui=max(1,menui-1)
+ if(btnp(⬇️)) menui=min(#menus,menui+1)
+
+ if btnp(🅾️) then
+  if(menui==1) init_game()
+  if(menui==2) init_option()
+  if(menui==3) run()  
+ end
+
+end
+
+
+function update_game()
+ if(btnp(❎)) init_menu()
+end
+-->8
+--draw
+
+function draw_menu()
+ cls()
+	--?'menu z key to game',31,63
+
+ ?'menu  press z key',31,31,7
+ for i=1,#menus do
+  local y=31+i*8
+  if (i==menui) then
+   ?('> '..menus[i]),31,y,8
+  else
+   ?('  '..menus[i]),31,y,7
+  end
+ end
+end
+
+
+function draw_game()
+ cls()
+	?'game x key to menu',31,63
+end
+
+
+__gfx__
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00700700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00077000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00077000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00700700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
